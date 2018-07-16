@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2010
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{4DF76451-A46A-4C0B-BE03-459FAAFA07E6}") = "Upwork", "Upwork\Upwork.mproj", "{CCE15093-27A6-4313-8E4B-ED25FED3E8A2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CCE15093-27A6-4313-8E4B-ED25FED3E8A2}.Debug|x86.ActiveCfg = Debug|x86
+		{CCE15093-27A6-4313-8E4B-ED25FED3E8A2}.Debug|x86.Build.0 = Debug|x86
+		{CCE15093-27A6-4313-8E4B-ED25FED3E8A2}.Release|x86.ActiveCfg = Release|x86
+		{CCE15093-27A6-4313-8E4B-ED25FED3E8A2}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {36397BA5-66FE-4F94-8556-8832A320D266}
+	EndGlobalSection
+EndGlobal
