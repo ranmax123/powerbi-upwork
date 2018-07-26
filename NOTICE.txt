@@ -1,0 +1,4 @@
+Upwork PowerBI Connector
+Copyright 2018 Upwork Inc.
+
+This product includes software developed at Upwork Inc (https://www.upwork.com/).
