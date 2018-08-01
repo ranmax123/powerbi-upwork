@@ -119,7 +119,7 @@ After you have set up the Upwork custom connector as described above, you may pu
 
 A snippet of this Power BI Report from our test account is attached below.
 
-![](docs/img/powerbireport.png)
+![](docs/img/upworkpowerbireport.png)
 
 Troubleshoot
 =========
