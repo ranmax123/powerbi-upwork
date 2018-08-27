@@ -243,12 +243,12 @@ errorColumns = {
 };
 
 [DataSource.Kind="Upwork", Publish="Upwork.Publish"]
-shared Upwork.Nav = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
+shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
 
 Upwork.NavImplType = type function() as table
         meta [
-            Documentation.Name = Extension.LoadString("Upwork.Nav.Name"),
-            Documentation.LongDescription = Extension.LoadString("Upwork.Nav.LongDescription")
+            Documentation.Name = Extension.LoadString("Upwork.Contents.Name"),
+            Documentation.LongDescription = Extension.LoadString("Upwork.Contents.LongDescription")
         ];
 
 Upwork.NavImpl =  () as table =>
@@ -828,7 +828,7 @@ Upwork.FinishLogin = (context, callbackUri, state) =>
 //Data Source Kind description
 Upwork = [
     // TestConnection is required to enable the connector through the Gateway
-    TestConnection = (dataSourcePath) => { "Upwork.Nav" },
+    TestConnection = (dataSourcePath) => { "Upwork.Contents" },
     Authentication = [
         OAuth=
             [StartLogin=Upwork.StartLogin, 

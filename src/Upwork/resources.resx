@@ -129,6 +129,12 @@
   <data name="DataSourceLabel" xml:space="preserve">
     <value>Upwork</value>
   </data>
+  <data name="Upwork.Contents.LongDescription" xml:space="preserve">
+    <value>Connect to Upwork</value>
+  </data>
+  <data name="Upwork.Contents.Name" xml:space="preserve">
+    <value>Upwork.Contents</value>
+  </data>
   <data name="Upwork.GetBilling.LongDescription" xml:space="preserve">
     <value>Get Billing information from Upwork. The billing data is pulled at month granularity starting from Jan 1, 2018 till current month.</value>
   </data>
@@ -158,12 +164,6 @@
   </data>
   <data name="Upwork.GetTeams.Name" xml:space="preserve">
     <value>Upwork.GetTeams</value>
-  </data>
-  <data name="Upwork.Nav.LongDescription" xml:space="preserve">
-    <value>Connect to Upwork</value>
-  </data>
-  <data name="Upwork.Nav.Name" xml:space="preserve">
-    <value>Upwork.Nav</value>
   </data>
   <data name="YesString" xml:space="preserve">
     <value>Yes</value>
