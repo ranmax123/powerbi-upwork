@@ -4,8 +4,6 @@ Introduction
 The purpose of this **Power BI Custom Data Connector** is to connect to Upwork API and
 pull data related to freelance projects. This custom data connector comes pre-packaged with a **Power BI Report** file to analyze your data quickly.
 
-The custom connector and Power BI Report template files are available under "dist" folder.
-
 The connector pulls following data from Upwork API:
 
 1.  Teams
@@ -18,10 +16,9 @@ The connector pulls following data from Upwork API:
 
 5.  Billing (pulled at a monthly level from Jan 2018)
 
-Before we start using this connector we need to request an API key from
-Upwork.
+Follow steps below to setup and use the Upwork connector.
 
-Steps to get access to Upwork REST API
+Step 1: Get access to Upwork REST API
 ======================================
 
 Go to Upwork API request URL, fill out project details, and submit it
@@ -49,25 +46,25 @@ data. Please find detailed steps:
 
 Once the keys are approved you need to update it in the connector.
 
-Update Keys in the connector
+Step 2: Download and Update Keys in the connector
 ==============================
 
-The keys are added to client\_application file. For you to update the
-default keys you need to:
+Please follow steps below to download and update keys in the connector:
 
-1.  Rename the connector file from ".mez" to ".zip"
+1.  In this GitHub repo, go to "dist" folder and download "Upwork.mez" and "Upwork_Report.pbit" file, and save it in your Desktop.
 
-2.  Unzip the contents
+2.  Rename "Upwork.mez" file "Upwork.zip"
 
-3.  Open client\_application file and update "ClientId" to key or
-    consumer key, and "ClientSecret" with the secret of your key.
+3.  Unzip the contents
 
-    a.  Note: to obtain your API Key and Secret, navigate to the below
-        link
+4.  Open client\_application file in Notepad or any other text file editor. Update "ClientId" with key or
+    consumer key, and "ClientSecret" with the secret of your key. Save the file after updates.
+
+    a.  Note: to obtain your API Key and Secret, navigate to the link below:
 
         i.  <https://www.upwork.com/services/api/keys>
 
-4.  Save the client\_application file, zip the folder and rename zip to
+5.  Zip the contents of the folder and rename zip to
     .mez
 
     a.  Note: Ensure that you are repackaging only the content files
@@ -75,35 +72,53 @@ default keys you need to:
         and its sub-components.
 
     ![](docs/img/zipcontents.png)
-        
-Enable "Custom data connectors" in Power BI
+    
+     
+Step 3: Place the connector file (.mez)
+=========================
+After you have updated the connector file above, copy the .mez file and place it under
+**C:\Users\\<Your_User_Name>\\Documents\\Microsoft Power BI Desktop\Custom Connectors** folder. 
+
+Create the folders if they do not exist.
+
+
+Step 4: Enable security options in Power BI
 =========================
 
-You need to enable custom data connectors option in Power BI desktop before you start seeing Upwork custom connector. Refer to the screenshot below. Restart Power BI Desktop to take
-effect. 
+If you are using Power BI Desktop version Oct 2018 or more, then follow the instructions below:
+
+1. Open a blank Power BI Desktop file
+2. Go to File->Options and settings->Options, and select "(Not Recommended)...." under Data Extensions. See screenshot below.
+
+![](docs/img/securityoptions.png)
+
+3. Restart Power BI Desktop to take effect.
+
+However, if you are using an older version (Sep 2018 or less), then follow the instructions below:
+
+1. Open a blank Power BI Desktop file
+2. Go to File->Options and settings->Options. Under "Preview features" select "Custom data connectors".
+
+Refer to the screenshot below. 
 
 ![](docs/img/options.png)
 
 ![](docs/img/enablecustomconnector.png)
 
-Load data
+3. Restart Power BI Desktop to take effect.
+
+Step 5: Load data
 =========
 
-After you have updated the key and secret in .mez file, you can put the
-.mez file in 'Documents\\Microsoft Power BI Desktop\\Custom Connectors'
-folder, and then open the Power BI report file available with the connector.
+You are now set to pull data from Upwork. If everything is setup correctly, you will see Upwork connector inside Online Services under Get Data. See screenshot below:
 
-When you open the Power BI file, the connector will start pulling the data from the
-REST API. 
+![](docs/img/connectoringetdata.png)
 
-Alternatively, you can open a blank Power BI Report file and navigate to "Get Data-\>More...-\>Online Services-\>Upwork".
-When you do this, you will see five tables in the navigation table.
 
-![](docs/img/navigationtable.png)
+Remember, you had saved "Upwork.mez" and "Upwork_Report.pbit" file in your Desktop? It's time to use the pbit file.
 
-You are free to choose which tables you want to pull data from. The
-Power BI template file available in the repo pulls the data from all
-these tables. 
+Double click on the "Upwork_Report.pbit" file and follow along to load fully comprehensive report of your freelance projects.   
+
 
 Power BI Report file
 =========
@@ -125,7 +140,7 @@ Troubleshoot
 =========
 1. **I cannot see "Upwork" custom connector in Get Data.**
 
-    The most common cause for this problem is the users have not enabled "Custom data connectors" option in Power BI. Refer to the above section on how to enable this option.
+    The most common cause for this problem is the users have not enabled security options in Power BI. Refer to the above section on how to enable this option.
     
     Another reason could be, you have not zipped the "contents" of the Upwork folder. You need to zip only the contents and not the parent folder after you have added your keys and secret.
 
@@ -139,11 +154,11 @@ Troubleshoot
 
     You need to login with the Upwork account in which you have access to the Upwork data. 
 
-    Currently, we do not have options to combine data from more than two accounts in this custom connector.
+    Currently, we do not have options to combine data from multiple accounts in this custom connector.
 
 4. **I see billing only from Jan 2018**
 
-    The billing data is currently being pulled only from Jan 2018. If you need billing data from previous years, open an enhancement request in Github. 
+    The billing data is currently being pulled only from Jan 2018. 
 
 5. **Whom to contact if I have further questions?**
 
