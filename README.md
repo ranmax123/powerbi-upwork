@@ -53,7 +53,7 @@ Please follow steps below to download and update keys in the connector:
 
 1.  In this GitHub repo, go to "dist" folder and download "Upwork.mez" and "Upwork_Report.pbit" file, and save it in your Desktop.
 
-2.  Rename "Upwork.mez" file "Upwork.zip"
+2.  Rename "Upwork.mez" file to "Upwork.zip"
 
 3.  Unzip the contents
 
