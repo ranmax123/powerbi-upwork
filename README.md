@@ -117,7 +117,7 @@ You are now set to pull data from Upwork. If everything is setup correctly, you 
 
 Remember, you had saved "Upwork.mez" and "Upwork_Report.pbit" file in your Desktop? It's time to use the pbit file.
 
-Double click on the "Upwork_Report.pbit" file and follow along to load fully comprehensive report of your freelance projects.   
+Double click on the "Upwork_Report.pbit" file and follow along to load a fully comprehensive report of your freelance projects.   
 
 
 Power BI Report file
