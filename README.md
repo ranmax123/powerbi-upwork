@@ -70,6 +70,8 @@ Please follow steps below to download and update keys in the connector:
     a.  Note: Ensure that you are repackaging only the content files
         (screenshot below) into a new .zip folder, not the parent folder
         and its sub-components.
+        
+    b. Note: A Windows machine must be used to create the zip file.
 
     ![](docs/img/zipcontents.png)
     
