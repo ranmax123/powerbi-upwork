@@ -15,10 +15,8 @@ recordsPerPage = Json.Document(Extension.Contents("client_application.json"))[Re
 baseUrl = "https://www.upwork.com";
 
 //Upwork token Urls
-requestTokenUrl = "/api/auth/v1/oauth/token/request";
-authenticateUrl = "/services/api/auth";
-accessTokenUrl = "/api/auth/v1/oauth/token/access";
-
+requestTokenUrl = "/api/v3/oauth2/token";
+authenticateUrl = "/ab/account-security/oauth2/authorize";
 
 //Upwork data APIs (relative path)
 teamUrl = "/api/hr/v2/teams.json";
@@ -289,7 +287,7 @@ Upwork.GetTeamsImpl = () =>
     let
         url = teamUrl,
         parameters = [],
-        response =  Upwork.Request2(false, url, parameters),
+        response =  Upwork.Request(false, url, parameters),
         json = Json.Document(response),
         teamMaster = Table.Transpose(Record.ToTable(json)),
         teamMasterTable = Table.PromoteHeaders(teamMaster, [PromoteAllScalars=true]),
@@ -318,7 +316,7 @@ Upwork.GetTeamsImpl = () =>
 //
 Upwork.GetContractsPerPage = (url, parameters) =>
     let
-        response =  Json.Document(Upwork.Request2(false, url, parameters))
+        response =  Json.Document(Upwork.Request(false, url, parameters))
     in
         response;
 
@@ -422,11 +420,11 @@ Upwork.GetContractsImpl = () =>
 // url -> engagement url
 // parameters -> parameters to pass to API, mostly we will pass pagination param
 // Note: In some cases you can view a team but may not have access to see jobs in that team,
-// so passing true in 4th param of Upwork.Request2
+// so passing true in 4th param of Upwork.Request
 //
 Upwork.GetJobsPerPage = (url, parameters) =>
     let
-        response =  Json.Document(Upwork.Request2(false, url, parameters, true))
+        response =  Json.Document(Upwork.Request(false, url, parameters, true))
     in
         response;
 
@@ -526,9 +524,9 @@ Upwork.GetJobsImpl = () =>
 //
 Upwork.GetFreelancerProfile = (freelanceRef) =>
     let 
-        url2 = freelancePrefixUrl & freelanceRef & freelanceSuffixUrl,
+        freelancerFullUrl = freelancePrefixUrl & freelanceRef & freelanceSuffixUrl,
         parameters = [],
-        response = Json.Document(Upwork.Request2(false, url2, parameters, true)),
+        response = Json.Document(Upwork.Request(false, freelancerFullUrl, parameters, true)),
 
         errorCode = try response[error][status] otherwise 200,
         output = if errorCode = 403 
@@ -631,9 +629,9 @@ Upwork.GetMonthFirstDates = (startdate as date, enddate as date) =>
 //
 Upwork.GetBillingByTeamByContract = (teamRef, contractRef) =>
     let
-        url = billingPrefixUrl & teamRef & billingSuffixUrl,
+        billingFullUrl = billingPrefixUrl & teamRef & billingSuffixUrl,
         parameters = [tq=billingQuery & contractRef],
-        response = Json.Document(Upwork.Request2(false, url, parameters))
+        response = Json.Document(Upwork.Request(false, billingFullUrl, parameters))
     in
         response;
 
@@ -645,13 +643,13 @@ Upwork.GetBillingByTeamByContract = (teamRef, contractRef) =>
 //
 Upwork.GetBillingByTeam = (teamRef, querydate) =>
     let
-        url = billingPrefixUrl & teamRef & billingSuffixUrl,
+        billingFullUrl = billingPrefixUrl & teamRef & billingSuffixUrl,
         billingQuerySDate = Text.Replace(billingQuery2, "$sdate$", Date.ToText(querydate, "yyyy-MM-dd")),
         billingQueryEDate = Text.Replace(billingQuerySDate, 
                                         "$edate$", 
                                         Date.ToText(Date.AddDays(Date.AddMonths(querydate,1),-1), "yyyy-MM-dd")),
         parameters = [tq=billingQueryEDate],
-        response = Json.Document(Upwork.Request2(false, url, parameters))
+        response = Json.Document(Upwork.Request(false, billingFullUrl, parameters))
     in
         response;
 
@@ -713,117 +711,84 @@ Upwork.GetBillingImpl = () =>
         transformedTable;
 
 
-/* Helper functions for making OAuth 1.0 requests after getting token */
-Upwork.Request2 = (isPost, url, parameters, optional isManualStatusHandling) =>
-    let
-        credential = Extension.CurrentCredential(),
-        auth = [oauth_consumer_key = clientId, oauth_token = credential[Properties][oauth_token]],
-        response = Upwork.Request(isPost, 
-                                 url, 
-                                 auth, 
-                                 parameters, 
-                                 clientSecret, 
-                                 credential[Properties][oauth_token_secret], 
-                                 "application/json", 
-                                 isManualStatusHandling)
-    in
-        response;
-        
-
-/* Helper functions for making OAuth 1.0 requests taken from Twitter search code by Curt, and
-and modified for this connector
+/* Helper functions for making OAuth 2.0 requests taken from
 https://github.com/CurtHagenlocher/Twitter/blob/master/Twitter.pq
 */
 Upwork.Request = 
             (isPost, // post or get 
             relativeUrl,  //relative url to base
-            authProps, //authentication properties
             otherProps, //other api properties
-            secret1, //secret
-            secret2, //token
-            optional accept, //accept
             optional isManualStatusHandling //for manually handling errors
             ) =>
     let
         url = baseUrl & relativeUrl,
         method = if isPost then "POST" else "GET",
-        combined = authProps & otherProps & [
-            oauth_signature_method="HMAC-SHA1",
-            oauth_nonce = Text.NewGuid(),
-            oauth_timestamp = Number.ToText(Number.Round(Duration.TotalSeconds(DateTimeZone.UtcNow() - #datetimezone(1970, 1, 1, 0, 0, 0, 0, 0)))),
-            oauth_version = "1.0"
-        ],
-        fieldNames = List.Sort(Record.FieldNames(combined)),
-        pairs = List.Transform(fieldNames, (f) => f & "=" & Uri.EscapeDataString(Record.Field(combined, f))),
-        combinedpairs = Text.Combine(pairs, "&"),
-        baseString = method & "&" & Uri.EscapeDataString(url) & "&" & Uri.EscapeDataString(combinedpairs),
-        compositeKey = Uri.EscapeDataString(secret1) & "&" & Uri.EscapeDataString(secret2),
-        signature = Binary.ToText(Crypto.CreateHmac(CryptoAlgorithm.SHA1, Text.ToBinary(compositeKey), Text.ToBinary(baseString)), BinaryEncoding.Base64),
-        withSignature = combined & [oauth_signature = signature],
-        allNames = Record.FieldNames(withSignature),
-        otherNames = Record.FieldNames(otherProps),
-        included = List.Select(allNames, each not List.Contains(otherNames, _)),
-        includedPairs = List.Transform(included, (f) => f & "=""" & Uri.EscapeDataString(Record.Field(withSignature, f)) & """"),
-        auth = [Authorization = "OAuth " & Text.Combine(includedPairs, ", ")],
-        headers = if accept = null then auth else auth & [Accept=accept],
+        headers = [Accept="application/json"],
         queryString = Uri.BuildQueryString(otherProps),
         options = if isPost then [Headers = [#"Content-type" = "application/x-www-form-urlencoded"] & headers, Content = Text.ToBinary(queryString)] else [Headers = headers],
         actualUrl = if isPost or Text.Length(queryString) = 0 then relativeUrl else relativeUrl & "?" & queryString,
         relativePath = [RelativePath = actualUrl],
         manualStatusHandling = if isManualStatusHandling = true then [ManualStatusHandling={403}] else [],
-        result = Web.Contents(baseUrl, manualStatusHandling & relativePath & options & [ManualCredentials=true])
+        result = Web.Contents(baseUrl, manualStatusHandling & relativePath & options)
     in
         result;
 
-Upwork.FromParts = (parts) =>
-    let
-        port = if (parts[Scheme] = "https" and parts[Port] = 443) or (parts[Scheme] = "http" and parts[Port] = 80) then "" else ":" & Text.From(parts[Port]),
-        div1 = if Record.FieldCount(parts[Query]) > 0 then "?" else "",
-        div2 = if Text.Length(parts[Fragment]) > 0 then "#" else "",
-        uri = Text.Combine({parts[Scheme], "://", parts[Host], port, parts[Path], div1, Uri.BuildQueryString(parts[Query]), div2, parts[Fragment]})
-    in
-        uri;
-
-Upwork.Get = (url, authProps, secret1, secret2, optional accept) =>
-    let
-        parts = Uri.Parts(url),
-        otherProps = parts[Query],
-        url2 = Upwork.FromParts(parts & [Query=[]])
-    in
-        Upwork.Request(false, url2, authProps, otherProps, secret1, secret2, accept);
-
-Upwork.GetRequestToken = () =>
-    let
-        auth = [oauth_callback = callbackUrl, oauth_consumer_key = clientId],
-        Response = Upwork.Request(true, requestTokenUrl, auth, [], clientSecret, ""),
-        Parts = Uri.Parts("http://localhost?" & Text.FromBinary(Response))[Query]
-    in
-        Parts;
 
 /* Authentication functions provided by SDK */
 Upwork.StartLogin = (resourceUrl, state, display) =>
     let
-        Token = Upwork.GetRequestToken(),
-        AuthorizeUrl = baseUrl & authenticateUrl & "?oauth_token=" & Uri.EscapeDataString(Token[oauth_token])
+        AuthorizeUrl = baseUrl & authenticateUrl & "?" & Uri.BuildQueryString([
+            client_id = clientId,  
+            redirect_uri = callbackUrl,
+            state = state,
+            response_type = "code"
+        ])
     in
         [
             LoginUri = AuthorizeUrl,
             CallbackUri = callbackUrl,
             WindowHeight = windowHeight,
             WindowWidth = windowWidth,
-            Context = Token
+            Context = null
         ];
 
 Upwork.FinishLogin = (context, callbackUri, state) =>
-    let
-        Token = context,
-        QueryParts = Uri.Parts(callbackUri)[Query],
-        auth = [oauth_token = Token[oauth_token], oauth_consumer_key = clientId],
-        verifier = [oauth_verifier = QueryParts[oauth_verifier]],
-        Response = Upwork.Request(true, accessTokenUrl, auth, verifier, clientSecret, Token[oauth_token_secret]),
-        Parts = Uri.Parts("http://localhost?" & Text.FromBinary(Response))[Query]
+   let
+        parts = Uri.Parts(callbackUri)[Query],
+        result = if (Record.HasFields(parts, {"error", "error_description"})) then 
+                    error Error.Record(parts[error], parts[error_description], parts)
+                 else
+                    Upwork.TokenMethod("authorization_code", "code", parts[code])
     in
-        Parts & [access_token="OnlyForOAuth2.0"];
+        result;
+
+Upwork.TokenMethod = (grantType, tokenField, code) =>
+    let
+        queryString = [
+            client_id = clientId,
+            client_secret = clientSecret,
+            grant_type = grantType,
+            redirect_uri = callbackUrl
+        ],
+        queryWithCode = Record.AddField(queryString, tokenField, code),
+        
+        token_uri = baseUrl & requestTokenUrl,
+
+        tokenResponse = Web.Contents(token_uri, [
+            Content = Text.ToBinary(Uri.BuildQueryString(queryWithCode)),
+            Headers = [
+                #"Content-type" = "application/x-www-form-urlencoded",
+                #"Accept" = "application/json"
+            ],
+            ManualStatusHandling = {400} 
+        ]),
+        body = Json.Document(tokenResponse),
+        result = if (Record.HasFields(body, {"error", "error_description"})) then 
+                    error Error.Record(body[error], body[error_description], body)
+                 else
+                    body
+    in
+        result;
 
 //Data Source Kind description
 Upwork = [
@@ -843,7 +808,7 @@ Upwork.Publish = [
     Beta = true,
     Category = Extension.LoadString("ConnectorCategory"),
     ButtonText = { Extension.LoadString("ButtonTitle"), Extension.LoadString("ButtonHelp") },
-    LearnMoreUrl = "https://powerbi.microsoft.com/",
+    LearnMoreUrl = "https://github.com/upwork/powerbi-upwork",
     SourceImage = Upwork.Icons,
     SourceTypeImage = Upwork.Icons
 ];

@@ -21,19 +21,19 @@ shared Upwork.UnitTest =
     facts =
     {        
         Fact("Check number of teams returned by API",  // name of the test
-             3,                                     // expected value
+             5,                                     // expected value
               Table.RowCount(teams)                   // expression to evaluate (let or single statement)
         ),
         Fact("Check number of jobs returned by API",  
-             2,                                    
+             7,                                    
               Table.RowCount(jobs)                  
         ),
         Fact("Check number of contracts returned by API", 
-             20,                                    
+             34 ,                                   
               Table.RowCount(contracts)                  
         ),
         Fact("Check number of freelancers returned by API",  
-             2,                                    
+             3,                                    
               Table.RowCount(freelancers)                  
         ),
         Fact("Check billing table should not be empty",  
