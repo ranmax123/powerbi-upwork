@@ -30,15 +30,15 @@ data. Please find detailed steps:
 
 2.  Provide project title and description
 
-3.  Select "Web Project"
+3.  Select Project type: **"Web Project"**
 
 4.  Provide a call back URL:
-    <https://preview.powerbi.com/views/oauthredirect.html>
+    <https://oauth.powerbi.com/views/oauthredirect.html>
 
 5.  Provide API Usage, you can select 500+ or 101-500
 
 6.  Select appropriate permissions. For this connector to work
-    correctly, you need to select the following permissions:
+    correctly, you need to select the following 8 permissions:
 
     ![](docs/img/permissions.png)
 
