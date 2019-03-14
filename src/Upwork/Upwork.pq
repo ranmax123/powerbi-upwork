@@ -790,6 +790,10 @@ Upwork.TokenMethod = (grantType, tokenField, code) =>
     in
         result;
 
+//Refresh access_token
+Upwork.Refresh = (resourceUrl, refresh_token) => 
+                Upwork.TokenMethod("refresh_token", "refresh_token", refresh_token);
+
 //Data Source Kind description
 Upwork = [
     // TestConnection is required to enable the connector through the Gateway
@@ -797,7 +801,8 @@ Upwork = [
     Authentication = [
         OAuth=
             [StartLogin=Upwork.StartLogin, 
-            FinishLogin=Upwork.FinishLogin]
+            FinishLogin=Upwork.FinishLogin,
+            Refresh=Upwork.Refresh]
     ],
     Label = Extension.LoadString("DataSourceLabel")
 ];
