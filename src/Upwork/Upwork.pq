@@ -18,6 +18,9 @@ baseUrl = "https://www.upwork.com";
 requestTokenUrl = "/api/v3/oauth2/token";
 authenticateUrl = "/ab/account-security/oauth2/authorize";
 
+//Upwork GraphQL Url
+graphQLUrl = "https://api.upwork.com/graphql";
+
 //Upwork data APIs (relative path)
 teamUrl = "/api/hr/v2/teams.json";
 contractUrl = "/api/hr/v2/engagements.json";
@@ -240,8 +243,44 @@ errorColumns = {
     "reason"
 };
 
+//Enterprise Reporting columns
+
+summaryInsightsTopLevelColumns = {
+"avgTimeToHire", "avgTimeToHireOthers", "avgFillRate", "avgFillRateOthers", 
+"avgFLRating", "avgFLRatingOthers", "clientUsage"};
+
+summaryInsightsClientUsageColumns = {
+    "totalEmployeeCount", "registeredUsers", "registeredUsersLast30Days", "jobPostedUsers", "spentUsers", "inactiveUsers", "projectsLessThan1k", "projects1kTo10k", "projects10kTo25k", "projectsMoreThan25k", "totalCategoriesWithNoSpend", "totalCategoriesWithSpend", "totalCategories", "activeHmCount"};
+
+hiringManagerInsightsTopLevelColumns = {
+"totalRegistered", "totalActive", "fillRate", "hiringManagers", "hiringManagersCount", "timePeriod"};
+
+hiringManagerInsightsHiringManagerColumns = 
+{"hmId", "email", "spend", "fillRate", "jobsPosted", "registrationDate", "daysSinceRegistration", "firstName", "lastName"};
+
+
+//GRAPHQL Based Calls
+
+
+querySummaryInsights = "query summaryInsights ($timePeriod: InsightsTimePeriod) {   insights {     organizationInsights {       summaryInsights(timePeriod: $timePeriod) {         avgTimeToHire         avgTimeToHireOthers         avgFillRate         avgFillRateOthers         avgFLRating         avgFLRatingOthers         clientUsage {           totalEmployeeCount           registeredUsers           registeredUsersLast30Days           jobPostedUsers           spentUsers           inactiveUsers           projectsLessThan1k           projects1kTo10k           projects10kTo25k           projectsMoreThan25k           totalCategoriesWithNoSpend           totalCategoriesWithSpend           totalCategories           avgFillRate           activeHmCount         }       }     }   } }";
+
+
+queryHiringManagerInsights = "query hiringManagersInsights ($timePeriod: InsightsTimePeriod, $limit: Int, $offset: Int) {   insights {     organizationInsights {       hiringManagersInsights(timePeriod: $timePeriod, limit:$limit, offset:$offset) {         totalRegistered         totalActive         fillRate         hiringManagers {           hmId           email           spend           fillRate           jobsPosted           registrationDate           daysSinceRegistration           firstName           lastName         }         hiringManagersCount         timePeriod       }     }   } }";
+
+
+queryCategoriesInsights = "query categoriesInsights ($timePeriod: InsightsTimePeriod, $limit: Int, $offset: Int) {   insights {     organizationInsights {       categoriesInsights(limit: $limit, timePeriod: $timePeriod, offset: $offset) {         activeCategoriesCount         avgProjectCost         jobsPosted         categories {           id           name           spend           spendOthers           avgProjectCost           jobsPosted           description           imageUrl           avgFlRating           avgTimeToHire           topServices {             id             name             flAvailable             hourlyRateStart             hourlyRateEnd             avgProjectCost             avgProjectDuration             totalSpend             fillRate             categoryId             subcategoryId           }           topProjects {             id             title           }           avgProjectDuration           avgProjectDurationOthers         }       }     }   }  }";
+
+
+queryServiceInsights = "query  serviceInsights ($timePeriod: InsightsTimePeriod, $limit: Int, $offset: Int) {   insights {     organizationInsights {       servicesInsights(timePeriod: $timePeriod, limit: $limit, offset: $offset) {         servicesCount         services {           id           name           flAvailable           hourlyRateStart           hourlyRateEnd           avgProjectCost           avgProjectDuration           totalSpend           fillRate           categoryId           subcategoryId         }       }     }   } }";
+
+
 [DataSource.Kind="Upwork", Publish="Upwork.Publish"]
 shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
+// shared Upwork.Contents = () as any =>
+//     let
+//         source = Upwork.GetEntReportingHiringManagers()
+//     in
+//         source;
 
 Upwork.NavImplType = type function() as table
         meta [
@@ -257,12 +296,189 @@ Upwork.NavImpl =  () as table =>
             {"Contracts",   "Contracts",  Upwork.GetContracts() , "Table",    "Table",    true},
             {"Freelancers",   "Freelancers",  Upwork.GetFreelancers() , "Table",    "Table",    true},
             {"Jobs",   "Jobs",  Upwork.GetJobs() , "Table",    "Table",    true},
-            {"Billing",   "Billing",  Upwork.GetBilling() , "Table",    "Table",    true}
+             {"Billing",   "Billing",  Upwork.GetBilling() , "Table",    "Table",    true},
+             
+             //Enterprise reporting
+            {"Enterprise Program Summary", "Enterprise Program Summary",  Upwork.GetEntProgramSummary() , "Table",    "Table",    true},
+            {"Enterprise User Metrics",   "Enterprise User Metrics",  Upwork.GetEntReportingHiringManagerMetrics() , "Table",    "Table",    true},
+            {"Enterprise User Summary",   "Enterprise User Summary",  Upwork.GetEntReportingHiringManagersSummary() , "Table",    "Table",    true}
         }),
         NavTable = Upwork.ToNavigationTable(objects, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
     in
         NavTable;
 
+/** Code to support Enterprise reporting endpoints **/
+// 
+// 
+//
+// Get Summary for Enterprise reporting
+// Tested for:
+// Enterprise - SUCCESS
+// Non Enterprise - SUCCESS
+//
+Upwork.GetEntProgramSummary = () as any =>
+
+    let
+        variable = [timePeriod = "QTD"],
+        graphqlRequest = [query = querySummaryInsights, variables = variable],
+        source = Json.Document(Upwork.GraphQLRequest(graphqlRequest)),
+        
+        #"Converted to Table" = if (Record.HasFields(source, "errors")) then
+                    error Error.Record(source[errors]{0}[message], source[errors]{0}[message], source[errors])
+                else 
+                    Record.ToTable(source),
+
+        #"Expanded Value" = Table.ExpandRecordColumn(#"Converted to Table", "Value", {"insights"}, {"insights"}),
+        #"Expanded insights" = Table.ExpandRecordColumn(#"Expanded Value", "insights", {"organizationInsights"}, {"organizationInsights"}),
+        #"Expanded organizationInsights" = Table.ExpandRecordColumn(#"Expanded insights", "organizationInsights", {"summaryInsights"}, {"summaryInsights"}),
+        #"Expanded summaryInsights" = Table.ExpandRecordColumn(#"Expanded organizationInsights", "summaryInsights", summaryInsightsTopLevelColumns),
+        #"Expanded clientUsage" = Table.ExpandRecordColumn(#"Expanded summaryInsights", "clientUsage", summaryInsightsClientUsageColumns),
+
+        #"Changed Type" = Table.TransformColumnTypes(#"Expanded clientUsage",
+            {{"avgTimeToHire", Int64.Type}, 
+            {"avgTimeToHireOthers", Int64.Type}, 
+            {"totalEmployeeCount", Int64.Type}, 
+            {"registeredUsers", Int64.Type}, 
+            {"registeredUsersLast30Days", Int64.Type}, 
+            {"jobPostedUsers", Int64.Type}, 
+            {"spentUsers", Int64.Type}, 
+            {"inactiveUsers", Int64.Type}, 
+            {"projectsLessThan1k", Int64.Type}, 
+            {"projects1kTo10k", Int64.Type}, 
+            {"projects10kTo25k", Int64.Type}, 
+            {"projectsMoreThan25k", Int64.Type}, 
+            {"totalCategoriesWithNoSpend", Int64.Type}, 
+            {"totalCategoriesWithSpend", Int64.Type}, 
+            {"totalCategories", Int64.Type}, 
+            {"activeHmCount", Int64.Type}, 
+            {"avgFillRate", Percentage.Type}, 
+            {"avgFillRateOthers", Percentage.Type}, 
+            {"avgFLRating", type number}, 
+            {"avgFLRatingOthers", type number}}),
+
+        #"Removed Columns" = Table.RemoveColumns(#"Changed Type",{"Name"})
+
+    in
+        #"Removed Columns";
+ 
+
+//
+// Get Hiring Manager Summary
+// Tested for:
+// Enterprise - SUCCESS
+// Non Enterprise - SUCCESS
+//
+Upwork.GetEntReportingHiringManagerMetrics = () as any =>
+
+    let
+        source = Upwork.GetEntReportingHiringManagerPagedData(1, //current page to fetch
+                                                              1, //fetch 1 page for summary 
+                                                              0, //offset
+                                                             "QTD", //timeperiod
+                                                             queryHiringManagerInsights,//query 
+                                                             {}),
+
+        #"Converted to Table" = Table.FromList(source, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+        #"Expanded Column1" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"data"}, {"data"}),
+        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded Column1", "data", {"insights"}, {"insights"}),
+        #"Expanded insights" = Table.ExpandRecordColumn(#"Expanded data", "insights", {"organizationInsights"}, {"organizationInsights"}),
+        #"Expanded organizationInsights" = Table.ExpandRecordColumn(#"Expanded insights", "organizationInsights", {"hiringManagersInsights"}, {"hiringManagersInsights"}),
+        #"Expanded hiringManagersInsights" = Table.ExpandRecordColumn(#"Expanded organizationInsights", "hiringManagersInsights", hiringManagerInsightsTopLevelColumns),
+
+        #"Removed Columns" = Table.RemoveColumns(#"Expanded hiringManagersInsights",{"hiringManagers"}),
+        #"Changed Type" = Table.TransformColumnTypes(#"Removed Columns",
+            {{"totalRegistered", Int64.Type}, 
+             {"totalActive", Int64.Type}, 
+             {"hiringManagersCount", Int64.Type}, 
+             {"fillRate", Percentage.Type}})
+    in
+        #"Changed Type";
+
+
+//
+// Get Hiring Manager Summary
+// Tested for:
+// Enterprise -  SUCCESS
+// Non Enterprise -  SUCCESS
+//
+Upwork.GetEntReportingHiringManagersSummary = () as any =>
+
+    let
+        source = Upwork.GetEntReportingHiringManagerPagedData(1, //current page to fetch
+                                                              -1, //fetch 1 page for summary 
+                                                              0, //offset
+                                                             "QTD", //timeperiod
+                                                             queryHiringManagerInsights,//query 
+                                                             {}),
+
+        #"Converted to Table" = Table.FromList(source, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+        #"Expanded Column1" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"data"}, {"data"}),
+        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded Column1", "data", {"insights"}, {"insights"}),
+        #"Expanded insights" = Table.ExpandRecordColumn(#"Expanded data", "insights", {"organizationInsights"}, {"organizationInsights"}),
+        #"Expanded organizationInsights" = Table.ExpandRecordColumn(#"Expanded insights", "organizationInsights", {"hiringManagersInsights"}, {"hiringManagersInsights"}),
+        #"Expanded hiringManagersInsights" = Table.ExpandRecordColumn(#"Expanded organizationInsights", "hiringManagersInsights", hiringManagerInsightsTopLevelColumns),
+
+        #"Removed Other Columns" = Table.SelectColumns(#"Expanded hiringManagersInsights", {"hiringManagers", "timePeriod"}),
+
+        #"Expanded hiringManagers" = Table.ExpandListColumn(#"Removed Other Columns", "hiringManagers"),
+        #"Expanded hiringManagers1" = Table.ExpandRecordColumn(#"Expanded hiringManagers", "hiringManagers", hiringManagerInsightsHiringManagerColumns),
+
+        #"Changed Type" = Table.TransformColumnTypes(#"Expanded hiringManagers1",
+                    {{"hmId", Int64.Type}, 
+                     {"jobsPosted", Int64.Type}, 
+                     {"daysSinceRegistration", Int64.Type},
+                     {"registrationDate", type date}, 
+                     {"spend", Currency.Type}, 
+                     {"fillRate", Percentage.Type}
+                     })
+        in
+             #"Changed Type";
+
+// 
+// 
+//
+// Get Hiring Manager Paged Data
+    // pageNumber -> the current page number
+    // numPagestoFetch -> number of pages of data to fetch
+    // offset -> record offset
+    // timePeriod -> the timePeriod of data to fetch
+    // query -> query to fire
+    // result -> result of the previous query
+// Tested for:
+// 1 team - SUCCESS
+// More than 1 teams - SUCCESS
+//
+
+//code reference taken from https://github.com/ranmax123/powerbi-custom-connectors/blob/master/ZendeskSupport/code/ZendeskSupport.pq    
+
+Upwork.GetEntReportingHiringManagerPagedData = (pageNumber, numPagestoFetch, offset, timePeriod, query, result) =>
+    let
+        limit = 30,
+        variable = [limit = limit, offset = offset, timePeriod = timePeriod],
+        graphqlRequest = [query = query, variables = variable],
+        
+        response = Json.Document(Upwork.GraphQLRequest(graphqlRequest)),
+
+        newResult = List.Combine({result, {response}}),
+        totalCount = try response[data][insights][organizationInsights][hiringManagersInsights][hiringManagersCount] 
+                                otherwise 0,
+        
+        newOffset = offset + limit
+    in
+       if (Record.HasFields(response, "errors")) then 
+            error Error.Record(response[errors]{0}[message], response[errors]{0}[message], response[errors])
+        else 
+            if pageNumber = numPagestoFetch or newOffset > totalCount then //no more records to fetch or error
+                newResult
+            else
+                Upwork.GetEntReportingHiringManagerPagedData(pageNumber + 1, 
+                                                             numPagestoFetch, 
+                                                             newOffset, 
+                                                             timePeriod, 
+                                                             query, 
+                                                             newResult);
+
+/** Support for Enterprise Reporting Code ends here **/
 
 // 
 // 
@@ -721,7 +937,6 @@ Upwork.Request =
             optional isManualStatusHandling //for manually handling errors
             ) =>
     let
-        url = baseUrl & relativeUrl,
         method = if isPost then "POST" else "GET",
         headers = [Accept="application/json"],
         queryString = Uri.BuildQueryString(otherProps),
@@ -733,6 +948,20 @@ Upwork.Request =
     in
         result;
 
+//GraphQL Request
+Upwork.GraphQLRequest = 
+            (graphqlParams, //other api properties
+            optional isManualStatusHandling //for manually handling errors
+            ) =>
+    let
+        method = "POST" ,
+        headers = [Accept="application/json"],
+        queryString = Json.FromValue(graphqlParams),
+        options = [Headers = [#"Content-type" = "application/json"] & headers, Content = queryString] ,
+        manualStatusHandling = if isManualStatusHandling = true then [ManualStatusHandling={403}] else [],
+        result = Web.Contents(graphQLUrl, manualStatusHandling & options)
+    in
+        result;
 
 /* Authentication functions provided by SDK */
 Upwork.StartLogin = (resourceUrl, state, display) =>
