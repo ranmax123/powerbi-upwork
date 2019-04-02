@@ -11,6 +11,10 @@ clientSecret = Json.Document(Extension.Contents("client_application.json"))[Clie
 callbackUrl = Json.Document(Extension.Contents("client_application.json"))[CallbackUrl];
 recordsPerPage = Json.Document(Extension.Contents("client_application.json"))[RecordsPerPage];
 
+//TEST
+testLimit = recordsPerPage;
+delayinSec = 1;
+
 //Upwork base Url
 baseUrl = "https://www.upwork.com";
 
@@ -258,6 +262,30 @@ hiringManagerInsightsTopLevelColumns = {
 hiringManagerInsightsHiringManagerColumns = 
 {"hmId", "email", "spend", "fillRate", "jobsPosted", "registrationDate", "daysSinceRegistration", "firstName", "lastName"};
 
+categoriesInsightsTopLevelColumns = {
+"activeCategoriesCount", "avgProjectCost", "jobsPosted"};
+
+categoriesInsightsDetailsColumns = {
+"id", "name", "spend", "spendOthers", "avgProjectCost", "jobsPosted", "description", "imageUrl", "avgFlRating",
+"avgTimeToHire", "avgProjectDuration","avgProjectDurationOthers"
+};
+
+categoriesInsightsDetailsOutputColumns = {
+"categoryId", "categoryName", "spend", "spendOthers", "avgProjectCost", "jobsPosted", "description", "imageUrl", "avgFlRating",
+"avgTimeToHire", "avgProjectDuration","avgProjectDurationOthers"
+};
+
+serviceInsightsColumns = {
+ "name", "flAvailable", "hourlyRateStart", "hourlyRateEnd", "avgProjectCost", "avgProjectDuration", "totalSpend", "fillRate", "categoryId", "subcategoryId"};
+
+serviceInsightsOutputColumns = {
+"subcategoryName", "flAvailable", "hourlyRateStart", "hourlyRateEnd", "avgProjectCost", "avgProjectDuration", "totalSpend", "fillRate", "categoryId", "subcategoryId"};
+
+companySelectorColumns =  {"title", "organizationId", "organizationEnterpriseType"};
+
+companySelectorOutputColumns = {"companyTitle", "companyOrgId", "organizationEnterpriseType"};
+
+companySelectorOutputColumns2 = {"companyTitle", "companyOrgId"};
 
 //GRAPHQL Based Calls
 
@@ -274,14 +302,19 @@ queryCategoriesInsights = "query categoriesInsights ($timePeriod: InsightsTimePe
 queryServiceInsights = "query  serviceInsights ($timePeriod: InsightsTimePeriod, $limit: Int, $offset: Int) {   insights {     organizationInsights {       servicesInsights(timePeriod: $timePeriod, limit: $limit, offset: $offset) {         servicesCount         services {           id           name           flAvailable           hourlyRateStart           hourlyRateEnd           avgProjectCost           avgProjectDuration           totalSpend           fillRate           categoryId           subcategoryId         }       }     }   } }";
 
 
+queryCompanySelector = "query  {   companySelector {     items {       title       organizationId       photoUrl       organizationRid       organizationType       organizationLegacyType       organizationEnterpriseType       legacyEnterpriseOrganization     }   } }";
+
+
+
 [DataSource.Kind="Upwork", Publish="Upwork.Publish"]
-shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
+
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetEntReportingHiringManagers()
+//         source = Upwork.GetEntAllServicesSummary()
 //     in
 //         source;
-
+// 
+shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
 Upwork.NavImplType = type function() as table
         meta [
             Documentation.Name = Extension.LoadString("Upwork.Contents.Name"),
@@ -300,8 +333,14 @@ Upwork.NavImpl =  () as table =>
              
              //Enterprise reporting
             {"Enterprise Program Summary", "Enterprise Program Summary",  Upwork.GetEntProgramSummary() , "Table",    "Table",    true},
-            {"Enterprise User Metrics",   "Enterprise User Metrics",  Upwork.GetEntReportingHiringManagerMetrics() , "Table",    "Table",    true},
-            {"Enterprise User Summary",   "Enterprise User Summary",  Upwork.GetEntReportingHiringManagersSummary() , "Table",    "Table",    true}
+            {"Enterprise Users Metrics",   "Enterprise Users Metrics",  Upwork.GetEntHiringManagersMetrics() , "Table",    "Table",    true},
+            {"Enterprise Users Summary",   "Enterprise Users Summary",  Upwork.GetEntHiringManagersSummary() , "Table",    "Table",    true},
+
+            {"Enterprise Categories Metrics",   "Enterprise Categories Metrics",  Upwork.GetEntCategoriesMetrics() , "Table",    "Table",    true},
+            {"Enterprise Categories Summary",   "Enterprise Categories Summary",  Upwork.GetEntCategoriesSummary() , "Table",    "Table",    true},
+            {"Enterprise Top Services Summary",   "Enterprise Top Services Summary",  Upwork.GetEntTopServicesSummary() , "Table",    "Table",    true},
+
+             {"Enterprise All Services Summary",   "Enterprise All Services Summary",  Upwork.GetEntAllServicesSummary() , "Table",    "Table",    true}
         }),
         NavTable = Upwork.ToNavigationTable(objects, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
     in
@@ -319,17 +358,17 @@ Upwork.NavImpl =  () as table =>
 Upwork.GetEntProgramSummary = () as any =>
 
     let
-        variable = [timePeriod = "QTD"],
+        variable = [timePeriod = "YTD"],
         graphqlRequest = [query = querySummaryInsights, variables = variable],
-        source = Json.Document(Upwork.GraphQLRequest(graphqlRequest)),
-        
-        #"Converted to Table" = if (Record.HasFields(source, "errors")) then
-                    error Error.Record(source[errors]{0}[message], source[errors]{0}[message], source[errors])
-                else 
-                    Record.ToTable(source),
 
-        #"Expanded Value" = Table.ExpandRecordColumn(#"Converted to Table", "Value", {"insights"}, {"insights"}),
-        #"Expanded insights" = Table.ExpandRecordColumn(#"Expanded Value", "insights", {"organizationInsights"}, {"organizationInsights"}),
+        table = Upwork.GetTopLevelEnterprises(),
+        
+        data = Table.AddColumn(table, "source", 
+                            each Upwork.GetEntProgramSummaryBase([companyOrgId])),
+
+        #"Expanded source" = Table.ExpandRecordColumn(data, "source", {"data"}, {"data"}),
+        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded source", "data", {"insights"}, {"insights"}),
+        #"Expanded insights" = Table.ExpandRecordColumn(#"Expanded data", "insights", {"organizationInsights"}, {"organizationInsights"}),
         #"Expanded organizationInsights" = Table.ExpandRecordColumn(#"Expanded insights", "organizationInsights", {"summaryInsights"}, {"summaryInsights"}),
         #"Expanded summaryInsights" = Table.ExpandRecordColumn(#"Expanded organizationInsights", "summaryInsights", summaryInsightsTopLevelColumns),
         #"Expanded clientUsage" = Table.ExpandRecordColumn(#"Expanded summaryInsights", "clientUsage", summaryInsightsClientUsageColumns),
@@ -359,34 +398,42 @@ Upwork.GetEntProgramSummary = () as any =>
         #"Removed Columns" = Table.RemoveColumns(#"Changed Type",{"Name"})
 
     in
-        #"Removed Columns";
+          #"Changed Type"  ;
  
 
 //
-// Get Hiring Manager Summary
+// Get Hiring Manager Metrics
 // Tested for:
 // Enterprise - SUCCESS
 // Non Enterprise - SUCCESS
 //
-Upwork.GetEntReportingHiringManagerMetrics = () as any =>
+Upwork.GetEntHiringManagersMetrics = () as any =>
 
     let
-        source = Upwork.GetEntReportingHiringManagerPagedData(1, //current page to fetch
-                                                              1, //fetch 1 page for summary 
-                                                              0, //offset
-                                                             "QTD", //timeperiod
-                                                             queryHiringManagerInsights,//query 
-                                                             {}),
 
-        #"Converted to Table" = Table.FromList(source, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-        #"Expanded Column1" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"data"}, {"data"}),
-        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded Column1", "data", {"insights"}, {"insights"}),
+        table = Upwork.GetTopLevelEnterprises(),
+        
+        data = Table.AddColumn(table, "source", 
+                            each Upwork.GetEntHiringManagerPagedData(
+                                                            [companyOrgId],//orgid
+                                                              1, //current page to fetch
+                                                              1, //fetch 1 page for metrics 
+                                                              0, //offset
+                                                             "YTD", //timeperiod
+                                                             queryHiringManagerInsights,//query 
+                                                             {})),
+
+        #"Expanded source" = Table.ExpandListColumn(data, "source"),
+    
+        #"Expanded source1" = Table.ExpandRecordColumn(#"Expanded source", "source", {"data"}, {"data"}),
+        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded source1", "data", {"insights"}, {"insights"}),
         #"Expanded insights" = Table.ExpandRecordColumn(#"Expanded data", "insights", {"organizationInsights"}, {"organizationInsights"}),
         #"Expanded organizationInsights" = Table.ExpandRecordColumn(#"Expanded insights", "organizationInsights", {"hiringManagersInsights"}, {"hiringManagersInsights"}),
         #"Expanded hiringManagersInsights" = Table.ExpandRecordColumn(#"Expanded organizationInsights", "hiringManagersInsights", hiringManagerInsightsTopLevelColumns),
 
         #"Removed Columns" = Table.RemoveColumns(#"Expanded hiringManagersInsights",{"hiringManagers"}),
-        #"Changed Type" = Table.TransformColumnTypes(#"Removed Columns",
+
+        #"Changed Type" = Table.TransformColumnTypes( #"Removed Columns",
             {{"totalRegistered", Int64.Type}, 
              {"totalActive", Int64.Type}, 
              {"hiringManagersCount", Int64.Type}, 
@@ -401,29 +448,39 @@ Upwork.GetEntReportingHiringManagerMetrics = () as any =>
 // Enterprise -  SUCCESS
 // Non Enterprise -  SUCCESS
 //
-Upwork.GetEntReportingHiringManagersSummary = () as any =>
+Upwork.GetEntHiringManagersSummary = () as any =>
 
     let
-        source = Upwork.GetEntReportingHiringManagerPagedData(1, //current page to fetch
-                                                              -1, //fetch 1 page for summary 
+        
+        table = Upwork.GetTopLevelEnterprises(),
+        
+        data = Table.AddColumn(table, "source", 
+                            each Upwork.GetEntHiringManagerPagedData(
+                                                            [companyOrgId],//orgid
+                                                              1, //current page to fetch
+                                                               -1, //fetch all pages for summary  
                                                               0, //offset
-                                                             "QTD", //timeperiod
+                                                             "YTD", //timeperiod
                                                              queryHiringManagerInsights,//query 
-                                                             {}),
+                                                             {})),
 
-        #"Converted to Table" = Table.FromList(source, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-        #"Expanded Column1" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"data"}, {"data"}),
-        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded Column1", "data", {"insights"}, {"insights"}),
+        #"Expanded source" = Table.ExpandListColumn(data, "source"),
+    
+        #"Expanded source1" = Table.ExpandRecordColumn(#"Expanded source", "source", {"data"}, {"data"}),
+        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded source1", "data", {"insights"}, {"insights"}),
+
         #"Expanded insights" = Table.ExpandRecordColumn(#"Expanded data", "insights", {"organizationInsights"}, {"organizationInsights"}),
         #"Expanded organizationInsights" = Table.ExpandRecordColumn(#"Expanded insights", "organizationInsights", {"hiringManagersInsights"}, {"hiringManagersInsights"}),
         #"Expanded hiringManagersInsights" = Table.ExpandRecordColumn(#"Expanded organizationInsights", "hiringManagersInsights", hiringManagerInsightsTopLevelColumns),
 
-        #"Removed Other Columns" = Table.SelectColumns(#"Expanded hiringManagersInsights", {"hiringManagers", "timePeriod"}),
+        #"Removed Other Columns" = Table.SelectColumns(#"Expanded hiringManagersInsights", List.Combine({companySelectorOutputColumns2,  {"hiringManagers", "timePeriod"}})),
 
         #"Expanded hiringManagers" = Table.ExpandListColumn(#"Removed Other Columns", "hiringManagers"),
         #"Expanded hiringManagers1" = Table.ExpandRecordColumn(#"Expanded hiringManagers", "hiringManagers", hiringManagerInsightsHiringManagerColumns),
 
-        #"Changed Type" = Table.TransformColumnTypes(#"Expanded hiringManagers1",
+         FilterRows = Table.SelectRows(#"Expanded hiringManagers1" , each ([hmId] <> null)),
+
+        #"Changed Type" = Table.TransformColumnTypes(FilterRows,
                     {{"hmId", Int64.Type}, 
                      {"jobsPosted", Int64.Type}, 
                      {"daysSinceRegistration", Int64.Type},
@@ -433,6 +490,244 @@ Upwork.GetEntReportingHiringManagersSummary = () as any =>
                      })
         in
              #"Changed Type";
+
+
+//
+// Get Top Services Summary
+// Tested for:
+// Enterprise -  SUCCESS
+// Non Enterprise -  SUCCESS
+//
+Upwork.GetEntTopServicesSummary = () as any =>
+
+    let
+        table = Upwork.GetTopLevelEnterprises(),
+        
+        data = Table.AddColumn(table, "source", 
+                            each Upwork.GetEntCategoriesPagedData(
+                                                            [companyOrgId],//orgid
+                                                              1, //current page to fetch
+                                                               -1, //fetch all pages for summary  
+                                                              0, //offset
+                                                             "YTD", //timeperiod
+                                                             queryCategoriesInsights,//query 
+                                                             {})),
+
+        #"Expanded source" = Table.ExpandListColumn(data, "source"),
+    
+        #"Expanded source1" = Table.ExpandRecordColumn(#"Expanded source", "source", {"data"}, {"data"}),
+        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded source1", "data", {"insights"}, {"insights"}),
+
+        #"Expanded insights" = Table.ExpandRecordColumn(#"Expanded data", "insights", {"organizationInsights"}, {"organizationInsights"}),
+        #"Expanded organizationInsights" = Table.ExpandRecordColumn(#"Expanded insights", "organizationInsights", {"categoriesInsights"}, {"categoriesInsights"}),
+        #"Expanded categoriesInsights" = Table.ExpandRecordColumn(#"Expanded organizationInsights", "categoriesInsights", {"categories"}),
+      
+        #"Expanded categories" = Table.ExpandListColumn( #"Expanded categoriesInsights", "categories"),
+
+
+        #"Expanded categories1" = Table.ExpandRecordColumn(#"Expanded categories", "categories", {"id", "name", "topServices"}, {"categoryId", "categoryName", "topServices"}),
+        #"Expanded topServices" = Table.ExpandListColumn(#"Expanded categories1", "topServices"),
+        #"Expanded topServices1" = Table.ExpandRecordColumn(#"Expanded topServices", "topServices", {"name", "flAvailable", "hourlyRateStart", "hourlyRateEnd", "avgProjectCost", "avgProjectDuration", "totalSpend", "fillRate","subcategoryId"}, {"subcategoryName", "flAvailable", "hourlyRateStart", "hourlyRateEnd", "avgProjectCost", "avgProjectDuration", "totalSpend", "fillRate", "subcategoryId"}),
+
+        TimePeriodAdded = Table.AddColumn( #"Expanded topServices1", "timePeriod", each "YTD"),
+
+        FilterRows = Table.SelectRows(TimePeriodAdded , each ([categoryId] <> null)),
+
+        #"Changed Type" = Table.TransformColumnTypes(FilterRows,
+                            {{"flAvailable", Int64.Type}, 
+                            {"hourlyRateStart", Currency.Type}, 
+                            {"hourlyRateEnd", Currency.Type}, 
+                            {"avgProjectCost", Currency.Type}, 
+                            {"avgProjectDuration", Int64.Type}, 
+                            {"totalSpend", Currency.Type}, 
+                            {"fillRate", Percentage.Type}})
+
+        in
+             #"Changed Type" ;
+
+//
+// Get Categories Summary
+// Tested for:
+// Enterprise -  SUCCESS
+// Non Enterprise -  SUCCESS
+//
+Upwork.GetEntCategoriesSummary = () as any =>
+
+    let
+        table = Upwork.GetTopLevelEnterprises(),
+        
+        data = Table.AddColumn(table, "source", 
+                            each Upwork.GetEntCategoriesPagedData(
+                                                            [companyOrgId],//orgid
+                                                              1, //current page to fetch
+                                                               -1, //fetch all pages for summary  
+                                                              0, //offset
+                                                             "YTD", //timeperiod
+                                                             queryCategoriesInsights,//query 
+                                                             {})),
+
+        #"Expanded source" = Table.ExpandListColumn(data, "source"),
+    
+        #"Expanded source1" = Table.ExpandRecordColumn(#"Expanded source", "source", {"data"}, {"data"}),
+        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded source1", "data", {"insights"}, {"insights"}),
+
+        #"Expanded insights" = Table.ExpandRecordColumn(#"Expanded data", "insights", {"organizationInsights"}, {"organizationInsights"}),
+        #"Expanded organizationInsights" = Table.ExpandRecordColumn(#"Expanded insights", "organizationInsights", {"categoriesInsights"}, {"categoriesInsights"}),
+        #"Expanded categoriesInsights" = Table.ExpandRecordColumn(#"Expanded organizationInsights", "categoriesInsights", {"categories"}),
+      
+        #"Expanded categories" = Table.ExpandListColumn( #"Expanded categoriesInsights", "categories"),
+        #"Expanded categories1" = Table.ExpandRecordColumn(#"Expanded categories", "categories", categoriesInsightsDetailsColumns, categoriesInsightsDetailsOutputColumns),
+
+        TimePeriodAdded = Table.AddColumn( #"Expanded categories1", "timePeriod", each "YTD"),
+        
+        FilterRows = Table.SelectRows(TimePeriodAdded , each ([categoryId] <> null)),
+
+         #"Changed Type" = Table.TransformColumnTypes(FilterRows,
+                    {{"spend", Currency.Type}, 
+                    {"spendOthers", Currency.Type}, 
+                    {"avgProjectCost", Currency.Type}, 
+                    {"avgProjectDurationOthers", Int64.Type}, 
+                    {"avgProjectDuration", Int64.Type}, 
+                    {"avgTimeToHire", Int64.Type}, 
+                    {"avgFlRating", type number}, 
+                    {"jobsPosted", Int64.Type}})
+        in
+             #"Changed Type" ;
+
+
+//
+// Get Categories Metrics
+// Tested for:
+// Enterprise -  SUCCESS
+// Non Enterprise -  SUCCESS
+//
+Upwork.GetEntCategoriesMetrics = () as any =>
+
+    let
+        table = Upwork.GetTopLevelEnterprises(),
+        
+        data = Table.AddColumn(table, "source", 
+                            each Upwork.GetEntCategoriesPagedData(
+                                                            [companyOrgId],//orgid
+                                                              1, //current page to fetch
+                                                                 1, //fetch 1 page for metrics 
+                                                              0, //offset
+                                                             "YTD", //timeperiod
+                                                             queryCategoriesInsights,//query 
+                                                             {})),
+
+        #"Expanded source" = Table.ExpandListColumn(data, "source"),
+    
+        #"Expanded source1" = Table.ExpandRecordColumn(#"Expanded source", "source", {"data"}, {"data"}),
+        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded source1", "data", {"insights"}, {"insights"}),
+        #"Expanded insights" = Table.ExpandRecordColumn(#"Expanded data", "insights", {"organizationInsights"}, {"organizationInsights"}),
+        #"Expanded organizationInsights" = Table.ExpandRecordColumn(#"Expanded insights", "organizationInsights", {"categoriesInsights"}, {"categoriesInsights"}),
+        #"Expanded categoriesInsights" = Table.ExpandRecordColumn(#"Expanded organizationInsights", "categoriesInsights", categoriesInsightsTopLevelColumns),
+      
+
+        TimePeriodAdded = Table.AddColumn(#"Expanded categoriesInsights", "timePeriod", each "YTD"),
+
+         #"Changed Type" = Table.TransformColumnTypes( TimePeriodAdded,
+                    {{"activeCategoriesCount", Int64.Type}, 
+                     {"jobsPosted", Int64.Type}, 
+                     {"avgProjectCost", Currency.Type}
+                     })
+        in
+             #"Changed Type" ;
+
+
+//
+// Get All Services Summary
+// Tested for:
+// Enterprise -  SUCCESS
+// Non Enterprise -  SUCCESS
+//
+Upwork.GetEntAllServicesSummary = () as any =>
+
+    let
+        table = Upwork.GetTopLevelEnterprises(),
+        
+        data = Table.AddColumn(table, "source", 
+                            each Upwork.GetEntServicesPagedData(
+                                                            [companyOrgId],//orgid
+                                                              1, //current page to fetch
+                                                                  -1, //fetch all pages for Summary 
+                                                              0, //offset
+                                                             "YTD", //timeperiod
+                                                             queryServiceInsights,//query 
+                                                             {})),
+
+        #"Expanded source" = Table.ExpandListColumn(data, "source"),
+    
+        #"Expanded source1" = Table.ExpandRecordColumn(#"Expanded source", "source", {"data"}, {"data"}),
+        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded source1", "data", {"insights"}, {"insights"}),
+
+        #"Expanded insights" = Table.ExpandRecordColumn(#"Expanded data", "insights", {"organizationInsights"}, {"organizationInsights"}),
+        #"Expanded organizationInsights" = Table.ExpandRecordColumn(#"Expanded insights", "organizationInsights", {"servicesInsights"}, {"servicesInsights"}),
+        #"Expanded servicesInsights" = Table.ExpandRecordColumn(#"Expanded organizationInsights", "servicesInsights", {"services"}),
+      
+        #"Expanded services" = Table.ExpandListColumn( #"Expanded servicesInsights", "services"),
+
+
+        #"Expanded services1" = Table.ExpandRecordColumn(#"Expanded services", "services",
+                                            serviceInsightsColumns,
+                                            serviceInsightsOutputColumns),
+
+        TimePeriodAdded = Table.AddColumn( #"Expanded services1", "timePeriod", each "YTD"),
+
+         FilterRows = Table.SelectRows(TimePeriodAdded , each ([subcategoryId] <> null)),
+
+        #"Changed Type" = Table.TransformColumnTypes(FilterRows,
+                            {{"flAvailable", Int64.Type}, 
+                            {"hourlyRateStart", Currency.Type}, 
+                            {"hourlyRateEnd", Currency.Type}, 
+                            {"avgProjectCost", Currency.Type}, 
+                            {"avgProjectDuration", Int64.Type}, 
+                            {"totalSpend", Currency.Type}, 
+                            {"fillRate", Percentage.Type}})
+
+        in
+             #"Changed Type" ;
+
+//
+// Get Top Level Enterprises
+// Tested for:
+// Enterprise -  SUCCESS
+// Non Enterprise -  SUCCESS
+//
+Upwork.GetTopLevelEnterprises = () =>
+
+    let
+        graphqlRequest = [query = queryCompanySelector],
+        source = Json.Document(Upwork.GraphQLRequest(graphqlRequest)),
+
+        data = source[data],
+        companySelector = data[companySelector],
+        items = companySelector[items],
+        #"Converted to Table" = Table.FromList(items, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+
+        #"Expanded Column1" = Table.ExpandRecordColumn(#"Converted to Table", "Column1",
+                        companySelectorColumns, 
+                        companySelectorOutputColumns),
+       
+       #"Filtered Rows" = Table.SelectRows(#"Expanded Column1", each ([organizationEnterpriseType] <> null)),
+
+        TopLevelEnt = Table.SelectColumns(#"Filtered Rows", {"companyTitle", "companyOrgId"})
+    in
+        TopLevelEnt;
+
+
+Upwork.GetEntProgramSummaryBase = (OrgId) =>
+    let
+        graphqlRequest = [query = querySummaryInsights],
+        source = Json.Document(Upwork.GraphQLRequest(graphqlRequest, OrgId)),
+
+        table = if (Record.HasFields(source, "errors")) then 
+              error Error.Record(source[errors]{0}[message], source[errors]{0}[message], source[errors])
+                else 
+                 source
+    in 
+        table;
 
 // 
 // 
@@ -451,27 +746,130 @@ Upwork.GetEntReportingHiringManagersSummary = () as any =>
 
 //code reference taken from https://github.com/ranmax123/powerbi-custom-connectors/blob/master/ZendeskSupport/code/ZendeskSupport.pq    
 
-Upwork.GetEntReportingHiringManagerPagedData = (pageNumber, numPagestoFetch, offset, timePeriod, query, result) =>
+Upwork.GetEntHiringManagerPagedData = (orgId, pageNumber, numPagestoFetch, offset, timePeriod, query, result) =>
     let
-        limit = 30,
+        limit = testLimit,
         variable = [limit = limit, offset = offset, timePeriod = timePeriod],
         graphqlRequest = [query = query, variables = variable],
         
-        response = Json.Document(Upwork.GraphQLRequest(graphqlRequest)),
+        response = Json.Document(Upwork.GraphQLRequest(graphqlRequest, orgId)),
 
         newResult = List.Combine({result, {response}}),
-        totalCount = try response[data][insights][organizationInsights][hiringManagersInsights][hiringManagersCount] 
-                                otherwise 0,
+        hmRecord = try response[data][insights][organizationInsights][hiringManagersInsights][hiringManagers] 
+                                otherwise [],
         
         newOffset = offset + limit
     in
        if (Record.HasFields(response, "errors")) then 
             error Error.Record(response[errors]{0}[message], response[errors]{0}[message], response[errors])
         else 
-            if pageNumber = numPagestoFetch or newOffset > totalCount then //no more records to fetch or error
+            if pageNumber = numPagestoFetch or 
+            (Value.Is(hmRecord, type record ) and Record.FieldCount(hmRecord) = 0)
+            or 
+            (Value.Is(hmRecord, type list ) and List.Count(hmRecord) = 0)
+            then //no more records to fetch or error
+              newResult
+            else
+                Upwork.GetEntHiringManagerPagedData(orgId,
+                                                    pageNumber + 1, 
+                                                    numPagestoFetch, 
+                                                    newOffset, 
+                                                    timePeriod, 
+                                                    query, 
+                                                    newResult);
+
+
+// 
+// 
+//
+// Get Category Paged Data
+    // pageNumber -> the current page number
+    // numPagestoFetch -> number of pages of data to fetch
+    // offset -> record offset
+    // timePeriod -> the timePeriod of data to fetch
+    // query -> query to fire
+    // result -> result of the previous query
+// Tested for:
+// 1 team - SUCCESS
+// More than 1 teams - SUCCESS
+//
+
+Upwork.GetEntCategoriesPagedData = (orgId, pageNumber, numPagestoFetch, offset, timePeriod, query, result) =>
+    let
+        limit = testLimit,
+        variable = [limit = limit, offset = offset, timePeriod = timePeriod],
+        graphqlRequest = [query = query, variables = variable],
+        
+        response = Json.Document(Upwork.GraphQLRequest(graphqlRequest, orgId)),
+
+        newResult = List.Combine({result, {response}}),
+        categoryRecord = try response[data][insights][organizationInsights][categoriesInsights][categories] 
+                                otherwise [],
+        
+        newOffset = offset + limit
+    in
+       if (Record.HasFields(response, "errors")) then 
+            error Error.Record(response[errors]{0}[message], response[errors]{0}[message], response[errors])
+        else 
+            if pageNumber = numPagestoFetch or 
+            (Value.Is(categoryRecord, type record ) and Record.FieldCount(categoryRecord) = 0)
+            or 
+            (Value.Is(categoryRecord, type list ) and List.Count(categoryRecord) = 0)
+            
+            then //no more records to fetch or error
                 newResult
             else
-                Upwork.GetEntReportingHiringManagerPagedData(pageNumber + 1, 
+                Upwork.GetEntCategoriesPagedData(orgId, 
+                                                pageNumber + 1, 
+                                                             numPagestoFetch, 
+                                                             newOffset, 
+                                                             timePeriod, 
+                                                             query, 
+                                                             newResult);
+
+ 
+// 
+//
+// Get Services Paged Data
+    // orgId -> Org Id
+    // pageNumber -> the current page number
+    // numPagestoFetch -> number of pages of data to fetch
+    // offset -> record offset
+    // timePeriod -> the timePeriod of data to fetch
+    // query -> query to fire
+    // result -> result of the previous query
+// Tested for:
+// 1 team - SUCCESS
+// More than 1 teams - SUCCESS
+//
+
+Upwork.GetEntServicesPagedData = (orgId, pageNumber, numPagestoFetch, offset, timePeriod, query, result) =>
+    let
+        limit = testLimit,
+        variable = [limit = limit, offset = offset, timePeriod = timePeriod],
+        graphqlRequest = [query = query, variables = variable],
+        
+        response = Json.Document(Upwork.GraphQLRequest(graphqlRequest, orgId)),
+
+        newResult = List.Combine({result, {response}}),
+        serviceRecord = try response[data][insights][organizationInsights][servicesInsights][services] 
+                                otherwise [],
+        
+        newOffset = offset + limit
+    in
+       if (Record.HasFields(response, "errors")) then 
+            error Error.Record(response[errors]{0}[message], response[errors]{0}[message], response[errors])
+        else 
+            if pageNumber = numPagestoFetch or 
+            (Value.Is(serviceRecord, type record ) and Record.FieldCount(serviceRecord) = 0)
+            or 
+            (Value.Is(serviceRecord, type list ) and List.Count(serviceRecord) = 0)
+            
+            then //no more records to fetch or error
+               newResult
+            else
+                Upwork.GetEntServicesPagedData(orgId,
+                                                pageNumber + 1, 
                                                              numPagestoFetch, 
                                                              newOffset, 
                                                              timePeriod, 
@@ -950,16 +1348,22 @@ Upwork.Request =
 
 //GraphQL Request
 Upwork.GraphQLRequest = 
-            (graphqlParams, //other api properties
+            (graphqlParams, //graphql properties,
+            optional OrgId,
             optional isManualStatusHandling //for manually handling errors
             ) =>
     let
         method = "POST" ,
+        
         headers = [Accept="application/json"],
+        headerOrgId = if OrgId <> null then [#"X-Upwork-API-TenantId" = OrgId] else [],
+
         queryString = Json.FromValue(graphqlParams),
-        options = [Headers = [#"Content-type" = "application/json"] & headers, Content = queryString] ,
+        options = [Headers = [#"Content-type" = "application/json"] & headers & headerOrgId, 
+                        Content = queryString] ,
+        
         manualStatusHandling = if isManualStatusHandling = true then [ManualStatusHandling={403}] else [],
-        result = Web.Contents(graphQLUrl, manualStatusHandling & options)
+        result = Function.InvokeAfter(()=>Web.Contents(graphQLUrl, manualStatusHandling & options), #duration(0,0,0, delayinSec))
     in
         result;
 
