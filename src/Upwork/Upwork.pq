@@ -275,6 +275,10 @@ categoriesInsightsDetailsOutputColumns = {
 "avgTimeToHire", "avgProjectDuration","avgProjectDurationOthers"
 };
 
+categoriesInsightsTopServicesColumns = {"id", "name", "flAvailable", "hourlyRateStart", "hourlyRateEnd", "avgProjectCost", "avgProjectDuration", "totalSpend", "fillRate","subcategoryId"};
+
+categoriesInsightsTopServicesOutputColumns = {"serviceId", "serviceName", "flAvailable", "hourlyRateStart", "hourlyRateEnd", "avgProjectCost", "avgProjectDuration", "totalSpend", "fillRate","subcategoryId"};
+
 serviceInsightsColumns = {
  "name", "flAvailable", "hourlyRateStart", "hourlyRateEnd", "avgProjectCost", "avgProjectDuration", "totalSpend", "fillRate", "categoryId", "subcategoryId"};
 
@@ -310,10 +314,10 @@ queryCompanySelector = "query  {   companySelector {     items {       title    
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetEntAllServicesSummary()
+//         source = Upwork.GetEntTopServicesSummary()
 //     in
 //         source;
-// 
+
 shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
 Upwork.NavImplType = type function() as table
         meta [
@@ -338,9 +342,7 @@ Upwork.NavImpl =  () as table =>
 
             {"Enterprise Categories Metrics",   "Enterprise Categories Metrics",  Upwork.GetEntCategoriesMetrics() , "Table",    "Table",    true},
             {"Enterprise Categories Summary",   "Enterprise Categories Summary",  Upwork.GetEntCategoriesSummary() , "Table",    "Table",    true},
-            {"Enterprise Top Services Summary",   "Enterprise Top Services Summary",  Upwork.GetEntTopServicesSummary() , "Table",    "Table",    true},
-
-             {"Enterprise All Services Summary",   "Enterprise All Services Summary",  Upwork.GetEntAllServicesSummary() , "Table",    "Table",    true}
+            {"Enterprise Top Services Summary",   "Enterprise Top Services Summary",  Upwork.GetEntTopServicesSummary() , "Table",    "Table",    true}
         }),
         NavTable = Upwork.ToNavigationTable(objects, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
     in
@@ -527,7 +529,7 @@ Upwork.GetEntTopServicesSummary = () as any =>
 
         #"Expanded categories1" = Table.ExpandRecordColumn(#"Expanded categories", "categories", {"id", "name", "topServices"}, {"categoryId", "categoryName", "topServices"}),
         #"Expanded topServices" = Table.ExpandListColumn(#"Expanded categories1", "topServices"),
-        #"Expanded topServices1" = Table.ExpandRecordColumn(#"Expanded topServices", "topServices", {"name", "flAvailable", "hourlyRateStart", "hourlyRateEnd", "avgProjectCost", "avgProjectDuration", "totalSpend", "fillRate","subcategoryId"}, {"subcategoryName", "flAvailable", "hourlyRateStart", "hourlyRateEnd", "avgProjectCost", "avgProjectDuration", "totalSpend", "fillRate", "subcategoryId"}),
+        #"Expanded topServices1" = Table.ExpandRecordColumn(#"Expanded topServices", "topServices", categoriesInsightsTopServicesColumns, categoriesInsightsTopServicesOutputColumns),
 
         TimePeriodAdded = Table.AddColumn( #"Expanded topServices1", "timePeriod", each "YTD"),
 
@@ -636,7 +638,7 @@ Upwork.GetEntCategoriesMetrics = () as any =>
              #"Changed Type" ;
 
 
-//
+// DO NOT USE
 // Get All Services Summary
 // Tested for:
 // Enterprise -  SUCCESS
