@@ -291,6 +291,15 @@ companySelectorOutputColumns = {"companyTitle", "companyOrgId", "organizationEnt
 
 companySelectorOutputColumns2 = {"companyTitle", "companyOrgId"};
 
+entObjectProgramSummaryName = "Program Summary";
+entObjectUserMetricsName = "Users Metrics";
+entObjectUserSummaryName = "Users Summary";
+entObjectCategoriesMetricsName = "Categories Metrics";
+entObjectCategoriesSummaryName = "Categories Summary";
+entObjectTopServicesSummaryName = "Top Services Summary";
+
+timePeriodList = {"MTD", "QTD", "YTD", "LAST12M"};
+
 //GRAPHQL Based Calls
 
 
@@ -314,7 +323,7 @@ queryCompanySelector = "query  {   companySelector {     items {       title    
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetEntTopServicesSummary()
+//         source = Upwork.ExecuteEntReporting(entObjectProgramSummaryName, "YTD")
 //     in
 //         source;
 
@@ -333,34 +342,99 @@ Upwork.NavImpl =  () as table =>
             {"Contracts",   "Contracts",  Upwork.GetContracts() , "Table",    "Table",    true},
             {"Freelancers",   "Freelancers",  Upwork.GetFreelancers() , "Table",    "Table",    true},
             {"Jobs",   "Jobs",  Upwork.GetJobs() , "Table",    "Table",    true},
-             {"Billing",   "Billing",  Upwork.GetBilling() , "Table",    "Table",    true},
-             
-             //Enterprise reporting
-            {"Enterprise Program Summary", "Enterprise Program Summary",  Upwork.GetEntProgramSummary() , "Table",    "Table",    true},
-            {"Enterprise Users Metrics",   "Enterprise Users Metrics",  Upwork.GetEntHiringManagersMetrics() , "Table",    "Table",    true},
-            {"Enterprise Users Summary",   "Enterprise Users Summary",  Upwork.GetEntHiringManagersSummary() , "Table",    "Table",    true},
-
-            {"Enterprise Categories Metrics",   "Enterprise Categories Metrics",  Upwork.GetEntCategoriesMetrics() , "Table",    "Table",    true},
-            {"Enterprise Categories Summary",   "Enterprise Categories Summary",  Upwork.GetEntCategoriesSummary() , "Table",    "Table",    true},
-            {"Enterprise Top Services Summary",   "Enterprise Top Services Summary",  Upwork.GetEntTopServicesSummary() , "Table",    "Table",    true}
+            {"Billing",   "Billing",  Upwork.GetBilling() , "Table",    "Table",    true},
+          
+            {"_Enterprise Reporting Insights", "_Enterprise Reporting Insights", Upwork.GetEntReportingObjects(), "Table", "Table", false}
         }),
         NavTable = Upwork.ToNavigationTable(objects, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
     in
         NavTable;
 
 /** Code to support Enterprise reporting endpoints **/
-// 
-// 
+
+//
+// Get Top Level Enterprise objects
+// Tested for:
+// Enterprise - SUCCESS
+// Non Enterprise - SUCCESS
+//
+
+Upwork.GetEntReportingObjects = () as table =>
+    let 
+        entReportingObjectsHeader = {"Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf"}, 
+        entReportingObjectsValues =  
+          {
+            {"Company Summary", "Company Summary", Upwork.GetTopLevelEnterprises(), "Table", "Table", true},
+            {"Program Summary",   "Program Summary",  Upwork.GetEntReportingwithTimePeriod(entObjectProgramSummaryName) , "Table",    "Table",    false},
+            {"Users Metrics",   "Users Metrics", Upwork.GetEntReportingwithTimePeriod(entObjectUserMetricsName) , "Table",    "Table",    false},
+            {"Users Summary",   "Users Summary",  Upwork.GetEntReportingwithTimePeriod(entObjectUserSummaryName) , "Table",    "Table",    false},
+            {"Categories Metrics",   "Categories Metrics", Upwork.GetEntReportingwithTimePeriod(entObjectCategoriesMetricsName) , "Table",    "Table",    false},
+            {"Categories Summary",   "Categories Summary",  Upwork.GetEntReportingwithTimePeriod(entObjectCategoriesSummaryName) , "Table",    "Table",    false},
+            {"Top Services Summary",   "Top Services Summary",  Upwork.GetEntReportingwithTimePeriod(entObjectTopServicesSummaryName) , "Table",    "Table",    false}
+          },
+
+        objects = #table(entReportingObjectsHeader, entReportingObjectsValues),
+        table = Upwork.ToNavigationTable(objects, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
+    in
+        table;
+
+
+//
+// Get Enterprise objects as per supported Time Periods
+// Tested for:
+// Enterprise - SUCCESS
+// Non Enterprise - SUCCESS
+//
+
+Upwork.GetEntReportingwithTimePeriod = (entObjectName) =>
+    let 
+        entReportingObjectsHeader = {"Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf"}, 
+    
+        entReportingObjectsValues =  List.Accumulate(timePeriodList, {}, 
+                    (state, current) => state & 
+                     {{ entObjectName & " - " & current, 
+                        entObjectName & " - " & current, 
+                        Upwork.ExecuteEntReporting(entObjectName, current), 
+                        "Table", 
+                        "Table", 
+                        true}}),
+
+        objects = #table(entReportingObjectsHeader, entReportingObjectsValues),
+        table = Upwork.ToNavigationTable(objects, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
+    in
+        table;
+
+//
+// Get Enterprise Reporting data
+// Tested for:
+// Enterprise - SUCCESS
+// Non Enterprise - SUCCESS
+//
+
+Upwork.ExecuteEntReporting = (entObjectName, timePeriod) =>
+
+    let
+        data = if entObjectName = entObjectProgramSummaryName then Upwork.GetEntProgramSummary(timePeriod) 
+                else if entObjectName = entObjectUserMetricsName then Upwork.GetEntHiringManagersMetrics(timePeriod)
+                else if entObjectName = entObjectUserSummaryName then Upwork.GetEntHiringManagersSummary(timePeriod)
+                else if entObjectName = entObjectCategoriesMetricsName then Upwork.GetEntCategoriesMetrics(timePeriod)
+                else if entObjectName = entObjectCategoriesSummaryName then Upwork.GetEntCategoriesSummary(timePeriod)
+                else if entObjectName = entObjectTopServicesSummaryName then Upwork.GetEntTopServicesSummary(timePeriod)
+                else null
+    in
+        data;
+
+
 //
 // Get Summary for Enterprise reporting
 // Tested for:
 // Enterprise - SUCCESS
 // Non Enterprise - SUCCESS
 //
-Upwork.GetEntProgramSummary = () as any =>
+Upwork.GetEntProgramSummary = (timePeriod) as any =>
 
     let
-        variable = [timePeriod = "YTD"],
+        variable = [timePeriod = timePeriod],
         graphqlRequest = [query = querySummaryInsights, variables = variable],
 
         table = Upwork.GetTopLevelEnterprises(),
@@ -375,7 +449,9 @@ Upwork.GetEntProgramSummary = () as any =>
         #"Expanded summaryInsights" = Table.ExpandRecordColumn(#"Expanded organizationInsights", "summaryInsights", summaryInsightsTopLevelColumns),
         #"Expanded clientUsage" = Table.ExpandRecordColumn(#"Expanded summaryInsights", "clientUsage", summaryInsightsClientUsageColumns),
 
-        #"Changed Type" = Table.TransformColumnTypes(#"Expanded clientUsage",
+        TimePeriodAdded = Table.AddColumn( #"Expanded clientUsage", "timePeriod", each timePeriod),
+
+        #"Changed Type" = Table.TransformColumnTypes(TimePeriodAdded,
             {{"avgTimeToHire", Int64.Type}, 
             {"avgTimeToHireOthers", Int64.Type}, 
             {"totalEmployeeCount", Int64.Type}, 
@@ -395,12 +471,10 @@ Upwork.GetEntProgramSummary = () as any =>
             {"avgFillRate", Percentage.Type}, 
             {"avgFillRateOthers", Percentage.Type}, 
             {"avgFLRating", type number}, 
-            {"avgFLRatingOthers", type number}}),
-
-        #"Removed Columns" = Table.RemoveColumns(#"Changed Type",{"Name"})
+            {"avgFLRatingOthers", type number}})
 
     in
-          #"Changed Type"  ;
+          #"Changed Type";
  
 
 //
@@ -409,7 +483,7 @@ Upwork.GetEntProgramSummary = () as any =>
 // Enterprise - SUCCESS
 // Non Enterprise - SUCCESS
 //
-Upwork.GetEntHiringManagersMetrics = () as any =>
+Upwork.GetEntHiringManagersMetrics = (timePeriod) as any =>
 
     let
 
@@ -421,7 +495,7 @@ Upwork.GetEntHiringManagersMetrics = () as any =>
                                                               1, //current page to fetch
                                                               1, //fetch 1 page for metrics 
                                                               0, //offset
-                                                             "YTD", //timeperiod
+                                                             timePeriod, //timeperiod
                                                              queryHiringManagerInsights,//query 
                                                              {})),
 
@@ -450,7 +524,7 @@ Upwork.GetEntHiringManagersMetrics = () as any =>
 // Enterprise -  SUCCESS
 // Non Enterprise -  SUCCESS
 //
-Upwork.GetEntHiringManagersSummary = () as any =>
+Upwork.GetEntHiringManagersSummary = (timePeriod) as any =>
 
     let
         
@@ -462,7 +536,7 @@ Upwork.GetEntHiringManagersSummary = () as any =>
                                                               1, //current page to fetch
                                                                -1, //fetch all pages for summary  
                                                               0, //offset
-                                                             "YTD", //timeperiod
+                                                             timePeriod, //timeperiod
                                                              queryHiringManagerInsights,//query 
                                                              {})),
 
@@ -500,7 +574,7 @@ Upwork.GetEntHiringManagersSummary = () as any =>
 // Enterprise -  SUCCESS
 // Non Enterprise -  SUCCESS
 //
-Upwork.GetEntTopServicesSummary = () as any =>
+Upwork.GetEntTopServicesSummary = (timePeriod) as any =>
 
     let
         table = Upwork.GetTopLevelEnterprises(),
@@ -511,7 +585,7 @@ Upwork.GetEntTopServicesSummary = () as any =>
                                                               1, //current page to fetch
                                                                -1, //fetch all pages for summary  
                                                               0, //offset
-                                                             "YTD", //timeperiod
+                                                             timePeriod, //timeperiod
                                                              queryCategoriesInsights,//query 
                                                              {})),
 
@@ -531,7 +605,7 @@ Upwork.GetEntTopServicesSummary = () as any =>
         #"Expanded topServices" = Table.ExpandListColumn(#"Expanded categories1", "topServices"),
         #"Expanded topServices1" = Table.ExpandRecordColumn(#"Expanded topServices", "topServices", categoriesInsightsTopServicesColumns, categoriesInsightsTopServicesOutputColumns),
 
-        TimePeriodAdded = Table.AddColumn( #"Expanded topServices1", "timePeriod", each "YTD"),
+        TimePeriodAdded = Table.AddColumn( #"Expanded topServices1", "timePeriod", each timePeriod),
 
         FilterRows = Table.SelectRows(TimePeriodAdded , each ([categoryId] <> null)),
 
@@ -553,7 +627,7 @@ Upwork.GetEntTopServicesSummary = () as any =>
 // Enterprise -  SUCCESS
 // Non Enterprise -  SUCCESS
 //
-Upwork.GetEntCategoriesSummary = () as any =>
+Upwork.GetEntCategoriesSummary = (timePeriod) as any =>
 
     let
         table = Upwork.GetTopLevelEnterprises(),
@@ -564,7 +638,7 @@ Upwork.GetEntCategoriesSummary = () as any =>
                                                               1, //current page to fetch
                                                                -1, //fetch all pages for summary  
                                                               0, //offset
-                                                             "YTD", //timeperiod
+                                                            timePeriod, //timeperiod
                                                              queryCategoriesInsights,//query 
                                                              {})),
 
@@ -580,7 +654,7 @@ Upwork.GetEntCategoriesSummary = () as any =>
         #"Expanded categories" = Table.ExpandListColumn( #"Expanded categoriesInsights", "categories"),
         #"Expanded categories1" = Table.ExpandRecordColumn(#"Expanded categories", "categories", categoriesInsightsDetailsColumns, categoriesInsightsDetailsOutputColumns),
 
-        TimePeriodAdded = Table.AddColumn( #"Expanded categories1", "timePeriod", each "YTD"),
+        TimePeriodAdded = Table.AddColumn( #"Expanded categories1", "timePeriod", each timePeriod),
         
         FilterRows = Table.SelectRows(TimePeriodAdded , each ([categoryId] <> null)),
 
@@ -603,7 +677,7 @@ Upwork.GetEntCategoriesSummary = () as any =>
 // Enterprise -  SUCCESS
 // Non Enterprise -  SUCCESS
 //
-Upwork.GetEntCategoriesMetrics = () as any =>
+Upwork.GetEntCategoriesMetrics = (timePeriod) as any =>
 
     let
         table = Upwork.GetTopLevelEnterprises(),
@@ -614,7 +688,7 @@ Upwork.GetEntCategoriesMetrics = () as any =>
                                                               1, //current page to fetch
                                                                  1, //fetch 1 page for metrics 
                                                               0, //offset
-                                                             "YTD", //timeperiod
+                                                             timePeriod, //timeperiod
                                                              queryCategoriesInsights,//query 
                                                              {})),
 
@@ -627,7 +701,7 @@ Upwork.GetEntCategoriesMetrics = () as any =>
         #"Expanded categoriesInsights" = Table.ExpandRecordColumn(#"Expanded organizationInsights", "categoriesInsights", categoriesInsightsTopLevelColumns),
       
 
-        TimePeriodAdded = Table.AddColumn(#"Expanded categoriesInsights", "timePeriod", each "YTD"),
+        TimePeriodAdded = Table.AddColumn(#"Expanded categoriesInsights", "timePeriod", each timePeriod),
 
          #"Changed Type" = Table.TransformColumnTypes( TimePeriodAdded,
                     {{"activeCategoriesCount", Int64.Type}, 
@@ -644,7 +718,7 @@ Upwork.GetEntCategoriesMetrics = () as any =>
 // Enterprise -  SUCCESS
 // Non Enterprise -  SUCCESS
 //
-Upwork.GetEntAllServicesSummary = () as any =>
+Upwork.GetEntAllServicesSummary = (timePeriod) as any =>
 
     let
         table = Upwork.GetTopLevelEnterprises(),
@@ -655,7 +729,7 @@ Upwork.GetEntAllServicesSummary = () as any =>
                                                               1, //current page to fetch
                                                                   -1, //fetch all pages for Summary 
                                                               0, //offset
-                                                             "YTD", //timeperiod
+                                                             timePeriod, //timeperiod
                                                              queryServiceInsights,//query 
                                                              {})),
 
@@ -675,7 +749,7 @@ Upwork.GetEntAllServicesSummary = () as any =>
                                             serviceInsightsColumns,
                                             serviceInsightsOutputColumns),
 
-        TimePeriodAdded = Table.AddColumn( #"Expanded services1", "timePeriod", each "YTD"),
+        TimePeriodAdded = Table.AddColumn( #"Expanded services1", "timePeriod", each timePeriod),
 
          FilterRows = Table.SelectRows(TimePeriodAdded , each ([subcategoryId] <> null)),
 
@@ -713,12 +787,19 @@ Upwork.GetTopLevelEnterprises = () =>
                         companySelectorOutputColumns),
        
        #"Filtered Rows" = Table.SelectRows(#"Expanded Column1", each ([organizationEnterpriseType] <> null)),
+       
+      // #"Filtered Rows" = Table.SelectRows(#"Expanded Column1", each ([companyOrgId] = "611678586057953280")),
 
         TopLevelEnt = Table.SelectColumns(#"Filtered Rows", {"companyTitle", "companyOrgId"})
     in
         TopLevelEnt;
 
-
+//
+// Get Program Summary
+// Tested for:
+// Enterprise -  SUCCESS
+// Non Enterprise -  SUCCESS
+//
 Upwork.GetEntProgramSummaryBase = (OrgId) =>
     let
         graphqlRequest = [query = querySummaryInsights],
