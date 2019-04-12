@@ -293,10 +293,10 @@ companySelectorOutputColumns2 = {"companyTitle", "companyOrgId"};
 
 entObjectProgramSummaryName = "Program Summary";
 entObjectUserMetricsName = "Users Metrics";
-entObjectUserSummaryName = "Users Summary";
+entObjectUserName = "Users";
 entObjectCategoriesMetricsName = "Categories Metrics";
-entObjectCategoriesSummaryName = "Categories Summary";
-entObjectTopServicesSummaryName = "Top Services Summary";
+entObjectCategoriesName = "Categories";
+entObjectTopServicesName = "Top Services";
 
 timePeriodList = {"MTD", "QTD", "YTD", "LAST12M"};
 
@@ -364,13 +364,13 @@ Upwork.GetEntReportingObjects = () as table =>
         entReportingObjectsHeader = {"Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf"}, 
         entReportingObjectsValues =  
           {
-            {"Company Summary", "Company Summary", Upwork.GetTopLevelEnterprises(), "Table", "Table", true},
+            {"Companies", "Companies", Upwork.GetTopLevelEnterprises(), "Table", "Table", true},
             {"Program Summary",   "Program Summary",  Upwork.GetEntReportingwithTimePeriod(entObjectProgramSummaryName) , "Table",    "Table",    false},
             {"Users Metrics",   "Users Metrics", Upwork.GetEntReportingwithTimePeriod(entObjectUserMetricsName) , "Table",    "Table",    false},
-            {"Users Summary",   "Users Summary",  Upwork.GetEntReportingwithTimePeriod(entObjectUserSummaryName) , "Table",    "Table",    false},
+            {"Users",   "Users",  Upwork.GetEntReportingwithTimePeriod(entObjectUserName) , "Table",    "Table",    false},
             {"Categories Metrics",   "Categories Metrics", Upwork.GetEntReportingwithTimePeriod(entObjectCategoriesMetricsName) , "Table",    "Table",    false},
-            {"Categories Summary",   "Categories Summary",  Upwork.GetEntReportingwithTimePeriod(entObjectCategoriesSummaryName) , "Table",    "Table",    false},
-            {"Top Services Summary",   "Top Services Summary",  Upwork.GetEntReportingwithTimePeriod(entObjectTopServicesSummaryName) , "Table",    "Table",    false}
+            {"Categories",   "Categories",  Upwork.GetEntReportingwithTimePeriod(entObjectCategoriesName) , "Table",    "Table",    false},
+            {"Top Services",   "Top Services",  Upwork.GetEntReportingwithTimePeriod(entObjectTopServicesName) , "Table",    "Table",    false}
           },
 
         objects = #table(entReportingObjectsHeader, entReportingObjectsValues),
@@ -416,10 +416,10 @@ Upwork.ExecuteEntReporting = (entObjectName, timePeriod) =>
     let
         data = if entObjectName = entObjectProgramSummaryName then Upwork.GetEntProgramSummary(timePeriod) 
                 else if entObjectName = entObjectUserMetricsName then Upwork.GetEntHiringManagersMetrics(timePeriod)
-                else if entObjectName = entObjectUserSummaryName then Upwork.GetEntHiringManagersSummary(timePeriod)
+                else if entObjectName = entObjectUserName then Upwork.GetEntHiringManagersSummary(timePeriod)
                 else if entObjectName = entObjectCategoriesMetricsName then Upwork.GetEntCategoriesMetrics(timePeriod)
-                else if entObjectName = entObjectCategoriesSummaryName then Upwork.GetEntCategoriesSummary(timePeriod)
-                else if entObjectName = entObjectTopServicesSummaryName then Upwork.GetEntTopServicesSummary(timePeriod)
+                else if entObjectName = entObjectCategoriesName then Upwork.GetEntCategoriesSummary(timePeriod)
+                else if entObjectName = entObjectTopServicesName then Upwork.GetEntTopServicesSummary(timePeriod)
                 else null
     in
         data;
