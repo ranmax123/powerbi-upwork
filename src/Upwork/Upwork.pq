@@ -434,13 +434,10 @@ Upwork.ExecuteEntReporting = (entObjectName, timePeriod) =>
 Upwork.GetEntProgramSummary = (timePeriod) as any =>
 
     let
-        variable = [timePeriod = timePeriod],
-        graphqlRequest = [query = querySummaryInsights, variables = variable],
-
         table = Upwork.GetTopLevelEnterprises(),
         
         data = Table.AddColumn(table, "source", 
-                            each Upwork.GetEntProgramSummaryBase([companyOrgId])),
+                            each Upwork.GetEntProgramSummaryBase([companyOrgId], timePeriod)),
 
         #"Expanded source" = Table.ExpandRecordColumn(data, "source", {"data"}, {"data"}),
         #"Expanded data" = Table.ExpandRecordColumn(#"Expanded source", "data", {"insights"}, {"insights"}),
@@ -800,9 +797,11 @@ Upwork.GetTopLevelEnterprises = () =>
 // Enterprise -  SUCCESS
 // Non Enterprise -  SUCCESS
 //
-Upwork.GetEntProgramSummaryBase = (OrgId) =>
+Upwork.GetEntProgramSummaryBase = (OrgId, timePeriod) =>
     let
-        graphqlRequest = [query = querySummaryInsights],
+        variable = [timePeriod = timePeriod],
+        graphqlRequest = [query = querySummaryInsights, variables = variable],
+
         source = Json.Document(Upwork.GraphQLRequest(graphqlRequest, OrgId)),
 
         table = if (Record.HasFields(source, "errors")) then 
