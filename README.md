@@ -204,3 +204,6 @@ Troubleshoot
 You may get unsupported browser error when authenticating with Upwork. Please ignore this error.
 
 ![](docs/img/browsernotsupportedwarning.png)
+
+7. **How do I setup refreshes on PowerBI.com?**
+    We highly recommend using [Power BI On-premises data gateway](https://powerbi.microsoft.com/en-us/gateway/) (non-personal mode) for setting up refreshes.
