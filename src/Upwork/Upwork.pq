@@ -1494,8 +1494,7 @@ Upwork.TokenMethod = (grantType, tokenField, code) =>
             Headers = [
                 #"Content-type" = "application/x-www-form-urlencoded",
                 #"Accept" = "application/json"
-            ],
-            ManualStatusHandling = {400} 
+            ]
         ]),
         body = Json.Document(tokenResponse),
         result = if (Record.HasFields(body, {"error", "error_description"})) then 
