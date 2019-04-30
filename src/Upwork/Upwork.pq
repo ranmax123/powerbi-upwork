@@ -1431,8 +1431,7 @@ Upwork.Request =
 //GraphQL Request
 Upwork.GraphQLRequest = 
             (graphqlParams, //graphql properties,
-            optional OrgId,
-            optional isManualStatusHandling //for manually handling errors
+            optional OrgId
             ) =>
     let
         method = "POST" ,
@@ -1444,7 +1443,7 @@ Upwork.GraphQLRequest =
         options = [Headers = [#"Content-type" = "application/json"] & headers & headerOrgId, 
                         Content = queryString] ,
         
-        manualStatusHandling = if isManualStatusHandling = true then [ManualStatusHandling={403}] else [],
+        manualStatusHandling = [],
         result = Function.InvokeAfter(()=>Web.Contents(graphQLUrl, manualStatusHandling & options), #duration(0,0,0, delayinSec))
     in
         result;
@@ -1471,9 +1470,10 @@ Upwork.FinishLogin = (context, callbackUri, state) =>
    let
         parts = Uri.Parts(callbackUri)[Query],
         result = if (Record.HasFields(parts, {"error", "error_description"})) then 
-                    error Error.Record(parts[error], parts[error_description], parts)
-                 else
-                    Upwork.TokenMethod("authorization_code", "code", parts[code])
+                     error Error.Record(parts[error], parts[error_description], parts)
+                    else
+                     Upwork.TokenMethod("authorization_code", "code", parts[code])
+
     in
         result;
 

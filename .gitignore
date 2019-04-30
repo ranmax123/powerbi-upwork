@@ -7,3 +7,4 @@
 /src/Upwork/obj/Release
 *.suo
 /src/.vs/config/applicationhost.config
+/src/Upwork/obj/Debug
