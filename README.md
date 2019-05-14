@@ -4,7 +4,7 @@ Introduction
 The purpose of this **Power BI Custom Data Connector** is to connect to Upwork API and
 pull data related to freelance projects. This custom data connector comes pre-packaged with a **Power BI Report** file to analyze your data quickly.
 
-The connector pulls following data from Upwork API:
+The connector pulls following data from Upwork API (Note: The data pulled from the connector is limited)
 
 1.  Teams
 
