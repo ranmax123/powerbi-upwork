@@ -6,7 +6,7 @@ pull data related to freelance projects. This custom data connector comes pre-pa
 
 The connector pulls data using OAuth 2.0 authentication mechanism. Make sure you register an OAuth 2.0 client on Upwork before accessing data through this connector.
 
-The connector pulls following data from Upwork API:
+The connector pulls following data from Upwork API (Note: The data pulled from the connector is limited)
 
 1.  Teams
 
