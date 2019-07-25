@@ -4,6 +4,8 @@ Introduction
 The purpose of this **Power BI Custom Data Connector** is to connect to Upwork API and
 pull data related to freelance projects. This custom data connector comes pre-packaged with a **Power BI Report** file to analyze your data quickly.
 
+The connector pulls data using OAuth 2.0 authentication mechanism. Make sure you register an OAuth 2.0 client on Upwork before accessing data through this connector.
+
 The connector pulls following data from Upwork API (Note: The data pulled from the connector is limited)
 
 1.  Teams
@@ -15,6 +17,9 @@ The connector pulls following data from Upwork API (Note: The data pulled from t
 4.  Freelancers
 
 5.  Billing (pulled at a monthly level from Jan 2018)
+
+6.  Enterprise Reporting Insights (newly added!)
+
 
 Follow steps below to setup and use the Upwork connector.
 
@@ -30,19 +35,24 @@ data. Please find detailed steps:
 
 2.  Provide project title and description
 
-3.  Select "Web Project"
+3.  Select Project type as **"Web Project"**
 
 4.  Provide a call back URL:
-    <https://preview.powerbi.com/views/oauthredirect.html>
+    <https://oauth.powerbi.com/views/oauthredirect.html>
 
 5.  Provide API Usage, you can select 500+ or 101-500
 
-6.  Select appropriate permissions. For this connector to work
-    correctly, you need to select the following permissions:
+6.  Select Auth type as "OAuth 2.0"
+
+7.  Select appropriate permissions. For this connector to work
+    correctly, you need to select the following 8 permissions:
 
     ![](docs/img/permissions.png)
 
-7.  Submit for approval
+8.  For enterprise reporting to work you need to select an additional permission:
+            Execute GQL Query under /graphql/
+
+9.  Submit the application for approval
 
 Once the keys are approved you need to update it in the connector.
 
@@ -119,12 +129,30 @@ You are now set to pull data from Upwork. If everything is setup correctly, you 
 
 Remember, you had saved "Upwork.mez" and "Upwork_Report.pbit" file in your Desktop? It's time to use the pbit file.
 
-Double click on the "Upwork_Report.pbit" file and follow along to load a fully comprehensive report of your freelance projects.   
+Double click on the "Upwork_Report.pbit" file and follow along to load a fully comprehensive report of your freelance projects. 
 
+
+Enterprise Reporting Insights
+=========
+If you are an enterprise using Upwork, you can view additional insights of your engagement on Upwork right within Power BI.
+
+Following enterprise views have been added in this connector.
+
+1.  **Program summary** - A summary of your engagement on Upwork. Metrics include avg time to hire, avg fill rate, avg FL rating, total users, active users for your company. The metrics also include avg across enterprises so you can benchmark your engagement.
+
+2.  **Categories metrics and summary** - Metrics and summary for job posted categories including active categories, avg project cost, and drilldown at a category level. The drilldown metrics include spend, avg time to hire, avg project cost and others.
+
+3.  **Users metrics and summary** - Metrics and summary for your users/hiring managers. Metrics include total users, active users, and drilldown at a user level. The drilldown metrics include spend, fill rate, hiring manager name, jobs posted, days since registration and others. 
+
+These new views are available in the connector. Refer to the screenshot below. You can pull data for time periods: MTD, QTD, YTD, or LAST 12 M (last complete 12 months).
+
+![](docs/img/upworkentviews.png)
 
 Power BI Report file
 =========
-The Power BI Report file that comes packaged with this connector shows a comprehensive view of your freelance projects. The report provides a trend of the amount spent on the platform for your contracts, avg. spend on contracts, and spend by job category and sub category.
+The Power BI Report file that comes packaged with this connector shows a comprehensive view of your freelance projects and enterprise reporting insights. 
+
+The report provides a trend of the amount spent on the platform for your contracts, avg. spend on contracts, and spend by job category and sub category.
 
 It also includes the distribution of hourly and fixed price contracts, active and closed contracts, and avg. contract duration in days.
 
@@ -137,6 +165,12 @@ After you have set up the Upwork custom connector as described above, you may pu
 A snippet of this Power BI Report from our test account is attached below.
 
 ![](docs/img/upworkpowerbireport.png)
+
+If you are an enterprise, you can pull additional views of your engagement on Upwork. The Power BI report template file pulls last 12 months of data for your program, categories and users.
+Here's a snippet of the enterprise program summary report page from our test account.
+
+![](docs/img/upworkentprogramsummary.png)
+
 
 Troubleshoot
 =========
@@ -165,3 +199,11 @@ Troubleshoot
 5. **Whom to contact if I have further questions?**
 
     The best way is to open an issue in Github. Our developers will respond to you as soon as possible.
+
+6. **I get unsupported browser error**
+You may get unsupported browser error when authenticating with Upwork. Please ignore this error.
+
+![](docs/img/browsernotsupportedwarning.png)
+
+7. **How do I setup refreshes on PowerBI.com?**
+    We highly recommend using [Power BI On-premises data gateway](https://powerbi.microsoft.com/en-us/gateway/) (non-personal mode) for setting up refreshes.
