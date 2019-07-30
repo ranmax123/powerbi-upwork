@@ -13,6 +13,7 @@ recordsPerPage = Json.Document(Extension.Contents("client_application.json"))[Re
 
 //TEST
 testLimit = recordsPerPage;
+contractsPerCall = recordsPerPage;
 delayinSec = 1;
 
 //Upwork base Url
@@ -297,6 +298,7 @@ entObjectUserName = "Users";
 entObjectCategoriesMetricsName = "Categories Metrics";
 entObjectCategoriesName = "Categories";
 entObjectTopServicesName = "Top Services";
+entObjectCustomFields = "Custom Fields";
 
 timePeriodList = {"MTD", "QTD", "YTD", "LAST12M"};
 
@@ -318,12 +320,13 @@ queryServiceInsights = "query  serviceInsights ($timePeriod: InsightsTimePeriod,
 queryCompanySelector = "query  {   companySelector {     items {       title       organizationId       photoUrl       organizationRid       organizationType       organizationLegacyType       organizationEnterpriseType       legacyEnterpriseOrganization     }   } }";
 
 
+queryCustomFields = "query customFields ($input: CustomFieldsInput!, $limit: Int, $offset: Int)  {  customFields (input: $input, offset: $offset, limit: $limit){     id    itemId    responseId    typeSnap    labelSnap    displayValueSnap    offerId    rollupAssignmentId    jobPostingId    byoInvitationId    buyItNowId    questionnaireResponsesId    stale    termSectionId }}";
 
 [DataSource.Kind="Upwork", Publish="Upwork.Publish"]
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.ExecuteEntReporting(entObjectProgramSummaryName, "YTD")
+//         source = Upwork.ExecuteEntReporting(entObjectCustomFields, "")
 //     in
 //         source;
 
@@ -343,7 +346,6 @@ Upwork.NavImpl =  () as table =>
             {"Freelancers",   "Freelancers",  Upwork.GetFreelancers() , "Table",    "Table",    true},
             {"Jobs",   "Jobs",  Upwork.GetJobs() , "Table",    "Table",    true},
             {"Billing",   "Billing",  Upwork.GetBilling() , "Table",    "Table",    true},
-          
             {"_Enterprise Reporting Insights", "_Enterprise Reporting Insights", Upwork.GetEntReportingObjects(), "Table", "Table", false}
         }),
         NavTable = Upwork.ToNavigationTable(objects, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
@@ -365,6 +367,7 @@ Upwork.GetEntReportingObjects = () as table =>
         entReportingObjectsValues =  
           {
             {"Companies", "Companies", Upwork.GetTopLevelEnterprises(), "Table", "Table", true},
+             {"Custom Fields",   "Custom Fields",  Upwork.GetCustomFields() , "Table",    "Table",    true},
             {"Program Summary",   "Program Summary",  Upwork.GetEntReportingwithTimePeriod(entObjectProgramSummaryName) , "Table",    "Table",    false},
             {"Users Metrics",   "Users Metrics", Upwork.GetEntReportingwithTimePeriod(entObjectUserMetricsName) , "Table",    "Table",    false},
             {"Users",   "Users",  Upwork.GetEntReportingwithTimePeriod(entObjectUserName) , "Table",    "Table",    false},
@@ -420,6 +423,7 @@ Upwork.ExecuteEntReporting = (entObjectName, timePeriod) =>
                 else if entObjectName = entObjectCategoriesMetricsName then Upwork.GetEntCategoriesMetrics(timePeriod)
                 else if entObjectName = entObjectCategoriesName then Upwork.GetEntCategoriesSummary(timePeriod)
                 else if entObjectName = entObjectTopServicesName then Upwork.GetEntTopServicesSummary(timePeriod)
+                else if entObjectName = entObjectCustomFields then Upwork.GetCustomFields()
                 else null
     in
         data;
@@ -762,6 +766,60 @@ Upwork.GetEntAllServicesSummary = (timePeriod) as any =>
         in
              #"Changed Type" ;
 
+
+//
+// Get Custom Fields
+// Tested for:
+// Enterprise -  
+// Non Enterprise -  
+//
+Upwork.GetCustomFields = () as any =>
+
+    let
+        contracts = Upwork.GetContractsPaged(contractUrl),
+        
+        #"Added Index" = Table.AddIndexColumn(contracts, "Index", 1, 1),
+        #"Removed Other Columns" = Table.SelectColumns(#"Added Index",{"Index", "contract_id"}),
+        
+        total_rows = Table.RowCount(#"Removed Other Columns"),
+        contract_groups_orig = Number.Round(total_rows/contractsPerCall, 0),
+
+        contract_groups = if contract_groups_orig = 0 then 1 else contract_groups_orig,
+
+        #"Added Custom" = Table.AddColumn(#"Removed Other Columns", "contract_group", each Number.Mod([Index], contract_groups)),
+        #"Grouped Rows" = Table.Group(#"Added Custom", {"contract_group"}, {{"List", each _, type table [Index=number, contract_id=number, contract_group=number]}}),
+        #"Added Custom1" = Table.AddColumn(#"Grouped Rows", "contract_ids", each Table.Column([List], "contract_id")),
+        #"Extracted Values" = Table.TransformColumns(#"Added Custom1", {"contract_ids", each Text.Combine(List.Transform(_, Text.From), ","), type text}),
+       
+        #"Removed Columns" = Table.RemoveColumns(#"Added Custom1" ,{"List"}),
+      
+        data = Table.AddColumn(#"Removed Columns", "source", 
+                            each Upwork.GetCustomFieldsPagedData(
+                                            null,//orgid
+                                            1, //current page to fetch
+                                            -1, //fetch all pages
+                                            0, //offset
+                                            [contract_ids],
+                                            queryCustomFields,//query 
+                                            {})),
+
+        #"Expanded source" = Table.ExpandListColumn(data, "source"),
+        #"Expanded source1" = Table.ExpandRecordColumn(#"Expanded source", "source", {"data"}, {"source.data"}),
+        #"Expanded source.data" = Table.ExpandRecordColumn(#"Expanded source1", "source.data", {"customFields"}, {"customFields"}),
+        #"Expanded customFields" = Table.ExpandListColumn(#"Expanded source.data", "customFields"),
+        #"Expanded customFields1" = Table.ExpandRecordColumn(#"Expanded customFields", "customFields", {"rollupAssignmentId", "labelSnap", "displayValueSnap", "stale"}, {"rollupAssignmentId", "labelSnap", "displayValueSnap", "stale"}),
+        #"Renamed Columns" = Table.RenameColumns(#"Expanded customFields1",{{"labelSnap", "custom_field"}, {"displayValueSnap", "custom_field_value"}, {"rollupAssignmentId", "contract_id_toplevel"}}),
+
+        #"Removed Columns2" = Table.RemoveColumns(#"Renamed Columns",{"contract_group", "contract_ids"}),
+        
+        #"Changed Type" = Table.TransformColumnTypes(#"Removed Columns2",{{"contract_id_toplevel", Int64.Type}}),
+
+        #"Filtered Rows" = Table.SelectRows(#"Changed Type", each ([contract_id_toplevel] <> null))
+
+    in
+       #"Filtered Rows";
+        
+
 //
 // Get Top Level Enterprises
 // Tested for:
@@ -785,7 +843,7 @@ Upwork.GetTopLevelEnterprises = () =>
        
        #"Filtered Rows" = Table.SelectRows(#"Expanded Column1", each ([organizationEnterpriseType] <> null)),
        
-      // #"Filtered Rows" = Table.SelectRows(#"Expanded Column1", each ([companyOrgId] = "611678586057953280")),
+       //#"Filtered Rows" = Table.SelectRows(#"Expanded Column1", each ([companyOrgId] = "927557201719623681")),
 
         TopLevelEnt = Table.SelectColumns(#"Filtered Rows", {"companyTitle", "companyOrgId"})
     in
@@ -955,6 +1013,56 @@ Upwork.GetEntServicesPagedData = (orgId, pageNumber, numPagestoFetch, offset, ti
                                                              numPagestoFetch, 
                                                              newOffset, 
                                                              timePeriod, 
+                                                             query, 
+                                                             newResult);
+
+
+
+// 
+// 
+//
+// Get Custom Fields Paged Data
+    // pageNumber -> the current page number
+    // numPagestoFetch -> number of pages of data to fetch
+    // offset -> record offset
+    // input -> input for data
+    // query -> query to fire
+    // result -> result of the previous query
+// Tested for:
+// 1 team - SUCCESS
+// More than 1 teams - SUCCESS
+//
+
+Upwork.GetCustomFieldsPagedData = (orgId, pageNumber, numPagestoFetch, offset, input, query, result) =>
+    let
+        limit = testLimit,
+        variable = [limit = limit, offset = offset, input = [rollupAssignmentIds = input]],
+        graphqlRequest = [query = query, variables = variable],
+        
+        response = Json.Document(Upwork.GraphQLRequest(graphqlRequest, orgId)),
+
+        newResult = List.Combine({result, {response}}),
+        customFieldsRecord = try response[data][customFields]
+                                otherwise [],
+        
+        newOffset = offset + limit
+    in
+       if (Record.HasFields(response, "errors")) then 
+            error Error.Record(response[errors]{0}[message], response[errors]{0}[message], response[errors])
+        else 
+            if pageNumber = numPagestoFetch or 
+            (Value.Is(customFieldsRecord, type record ) and Record.FieldCount(customFieldsRecord) = 0)
+            or 
+            (Value.Is(customFieldsRecord, type list ) and List.Count(customFieldsRecord) = 0)
+            
+            then //no more records to fetch or error
+                newResult
+            else
+                Upwork.GetCustomFieldsPagedData(orgId, 
+                                                pageNumber + 1, 
+                                                             numPagestoFetch, 
+                                                             newOffset, 
+                                                             input, 
                                                              query, 
                                                              newResult);
 

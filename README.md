@@ -4,7 +4,12 @@ Introduction
 The purpose of this **Power BI Custom Data Connector** is to connect to Upwork API and
 pull data related to freelance projects. This custom data connector comes pre-packaged with a **Power BI Report** file to analyze your data quickly.
 
-The connector pulls data using OAuth 2.0 authentication mechanism. Make sure you register an OAuth 2.0 client on Upwork before accessing data through this connector.
+The connector connects to Upwork APIs using OAuth 2.0 protocol. Make sure you register an OAuth 2.0 client on Upwork before accessing data through this connector.
+
+**Note 1: Please check folder "build\dist_v1" in this repo for accessing the connector with OAuth 1.0, if you wish to. This build doesn't have any new changes**
+
+**Note 2: Any enhancements/additions moving forward will be released with OAuth 2.0 support only.**
+
 
 The connector pulls following data from Upwork API (Note: The data pulled from the connector is limited)
 
@@ -19,6 +24,7 @@ The connector pulls following data from Upwork API (Note: The data pulled from t
 5.  Billing (pulled at a monthly level from Jan 2018)
 
 6.  Enterprise Reporting Insights (newly added!)
+7.  Enterprise Custom Fields (newly added!)
 
 
 Follow steps below to setup and use the Upwork connector.
@@ -50,6 +56,7 @@ data. Please find detailed steps:
     ![](docs/img/permissions.png)
 
 8.  For enterprise reporting to work you need to select an additional permission:
+            
             Execute GQL Query under /graphql/
 
 9.  Submit the application for approval
@@ -144,7 +151,10 @@ Following enterprise views have been added in this connector.
 
 3.  **Users metrics and summary** - Metrics and summary for your users/hiring managers. Metrics include total users, active users, and drilldown at a user level. The drilldown metrics include spend, fill rate, hiring manager name, jobs posted, days since registration and others. 
 
-These new views are available in the connector. Refer to the screenshot below. You can pull data for time periods: MTD, QTD, YTD, or LAST 12 M (last complete 12 months).
+4. **Custom Fields** - Get custom fields and values for your contracts.
+
+
+These new views are available in the connector. Refer to the screenshot below. You can pull data for following time periods: MTD, QTD, YTD, or LAST 12 M (last complete 12 months).
 
 ![](docs/img/upworkentviews.png)
 
