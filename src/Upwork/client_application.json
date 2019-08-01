@@ -2,5 +2,5 @@
   "ClientId": "YOUR_CLIENT_ID",
   "ClientSecret": "YOUR_CLIENT_SECRET",
   "CallbackUrl": "https://oauth.powerbi.com/views/oauthredirect.html",
-  "RecordsPerPage": 50
+  "RecordsPerPage": 100
 }

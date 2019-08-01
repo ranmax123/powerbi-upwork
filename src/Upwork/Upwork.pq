@@ -286,9 +286,9 @@ serviceInsightsColumns = {
 serviceInsightsOutputColumns = {
 "subcategoryName", "flAvailable", "hourlyRateStart", "hourlyRateEnd", "avgProjectCost", "avgProjectDuration", "totalSpend", "fillRate", "categoryId", "subcategoryId"};
 
-companySelectorColumns =  {"title", "organizationId", "organizationEnterpriseType"};
+companySelectorColumns =  {"title", "organizationId", "organizationRid", "organizationEnterpriseType"};
 
-companySelectorOutputColumns = {"companyTitle", "companyOrgId", "organizationEnterpriseType"};
+companySelectorOutputColumns = {"companyTitle", "companyOrgId", "companyReference", "organizationEnterpriseType"};
 
 companySelectorOutputColumns2 = {"companyTitle", "companyOrgId"};
 
@@ -326,7 +326,7 @@ queryCustomFields = "query customFields ($input: CustomFieldsInput!, $limit: Int
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.ExecuteEntReporting(entObjectCustomFields, "")
+//         source = Upwork.GetCustomFields()
 //     in
 //         source;
 
@@ -770,16 +770,28 @@ Upwork.GetEntAllServicesSummary = (timePeriod) as any =>
 //
 // Get Custom Fields
 // Tested for:
-// Enterprise -  
-// Non Enterprise -  
+// Enterprise - SUCCESS
+// Non Enterprise -  SUCCESS
 //
 Upwork.GetCustomFields = () as any =>
 
-    let
+    let //get mapping between teams_id -> company ref -> company Org Id
+        teams = Upwork.GetTeams(),
+        topLevelEnt = Upwork.GetTopLevelEnterprises(),
+
+        #"Merged Queries" = Table.NestedJoin(teams, {"company_id"}, topLevelEnt, {"companyReference"}, "Companies", JoinKind.Inner),
+        #"Expanded Companies" = Table.ExpandTableColumn(#"Merged Queries", "Companies", {"companyOrgId"}, {"companyOrgId"}),
+
         contracts = Upwork.GetContractsPaged(contractUrl),
-        
-        #"Added Index" = Table.AddIndexColumn(contracts, "Index", 1, 1),
-        #"Removed Other Columns" = Table.SelectColumns(#"Added Index",{"Index", "contract_id"}),
+
+        contractsTransformed = Table.TransformColumnTypes(contracts, {{"buyer_team_id", Int64.Type}}),
+    
+         #"Merged Queries2" = Table.NestedJoin(contractsTransformed, {"buyer_team_id"},  #"Expanded Companies", {"team_id"}, "Teams", JoinKind.Inner),
+       
+         #"Expanded Teams" = Table.ExpandTableColumn(#"Merged Queries2", "Teams", {"companyOrgId"}, {"companyOrgId"}),
+
+        #"Added Index" = Table.AddIndexColumn(#"Expanded Teams", "Index", 1, 1),
+        #"Removed Other Columns" = Table.SelectColumns(#"Added Index",{"Index", "contract_id", "companyOrgId"}),
         
         total_rows = Table.RowCount(#"Removed Other Columns"),
         contract_groups_orig = Number.Round(total_rows/contractsPerCall, 0),
@@ -787,7 +799,8 @@ Upwork.GetCustomFields = () as any =>
         contract_groups = if contract_groups_orig = 0 then 1 else contract_groups_orig,
 
         #"Added Custom" = Table.AddColumn(#"Removed Other Columns", "contract_group", each Number.Mod([Index], contract_groups)),
-        #"Grouped Rows" = Table.Group(#"Added Custom", {"contract_group"}, {{"List", each _, type table [Index=number, contract_id=number, contract_group=number]}}),
+        #"Grouped Rows" = Table.Group(#"Added Custom", {"contract_group", "companyOrgId"}, {{"List", each _, type table [Index=number, contract_id=number, contract_group=number, companyOrgId=text]}}),
+
         #"Added Custom1" = Table.AddColumn(#"Grouped Rows", "contract_ids", each Table.Column([List], "contract_id")),
         #"Extracted Values" = Table.TransformColumns(#"Added Custom1", {"contract_ids", each Text.Combine(List.Transform(_, Text.From), ","), type text}),
        
@@ -795,7 +808,7 @@ Upwork.GetCustomFields = () as any =>
       
         data = Table.AddColumn(#"Removed Columns", "source", 
                             each Upwork.GetCustomFieldsPagedData(
-                                            null,//orgid
+                                            [companyOrgId],//orgid
                                             1, //current page to fetch
                                             -1, //fetch all pages
                                             0, //offset
@@ -817,7 +830,7 @@ Upwork.GetCustomFields = () as any =>
         #"Filtered Rows" = Table.SelectRows(#"Changed Type", each ([contract_id_toplevel] <> null))
 
     in
-       #"Filtered Rows";
+        #"Filtered Rows";
         
 
 //
@@ -843,11 +856,13 @@ Upwork.GetTopLevelEnterprises = () =>
        
        #"Filtered Rows" = Table.SelectRows(#"Expanded Column1", each ([organizationEnterpriseType] <> null)),
        
-       //#"Filtered Rows" = Table.SelectRows(#"Expanded Column1", each ([companyOrgId] = "927557201719623681")),
+       // #"Filtered Rows" = Table.SelectRows(#"Expanded Column1", each ([companyOrgId] = "1036585057712848896")),
 
-        TopLevelEnt = Table.SelectColumns(#"Filtered Rows", {"companyTitle", "companyOrgId"})
+        TopLevelEnt = Table.SelectColumns(#"Filtered Rows", {"companyTitle", "companyOrgId", "companyReference"}),
+        TopLevelEnt2 = Table.TransformColumnTypes(TopLevelEnt, {{"companyReference", Int64.Type}})
+
     in
-        TopLevelEnt;
+        TopLevelEnt2;
 
 //
 // Get Program Summary
@@ -1205,7 +1220,7 @@ Upwork.GetContractsImpl = () =>
 
         transformedTable = Table.TransformColumnTypes(transformedDate,
                 {
-                {"buyer_team_id", Int64.Type}, 
+                {"buyer_team_id", Int64.Type},
                 {"hourly_charge_rate", Currency.Type}, 
                 {"weekly_hours_limit", type number}, 
                 {"freelancer_id", Int64.Type}, 
