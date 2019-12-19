@@ -326,7 +326,7 @@ queryCustomFields = "query customFields ($input: CustomFieldsInput!, $limit: Int
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetCustomFields()
+//         source = Upwork.GetJobApplications()
 //     in
 //         source;
 
@@ -1235,8 +1235,8 @@ Upwork.GetContractsImpl = () =>
 
 
 //
-// Get Contracts per Page
-// url -> engagement url
+// Get Jobs per Page
+// url -> job url
 // parameters -> parameters to pass to API, mostly we will pass pagination param
 // Note: In some cases you can view a team but may not have access to see jobs in that team,
 // so passing true in 4th param of Upwork.Request
@@ -1280,21 +1280,25 @@ Upwork.GetJobsPerTeam = (url, parameters) =>
 [DataSource.Kind="Upwork"]
 shared Upwork.GetJobs = Value.ReplaceType(Upwork.GetJobsImpl, Upwork.GetJobsImplType);
 
-Upwork.GetJobsImplType = type function() as table
+Upwork.GetJobsImplType = type function(optional status as ( type text meta[
+        Documentation.FieldCaption = Extension.LoadString("Upwork.GetJobs.Status.Name"),
+        Documentation.FieldDescription = Extension.LoadString("Upwork.GetJobs.Status.LongDescription")]
+        )) as table
         meta [
             Documentation.Name = Extension.LoadString("Upwork.GetJobs.Name"),
             Documentation.LongDescription = Extension.LoadString("Upwork.GetJobs.LongDescription")
         ];
 
 
-Upwork.GetJobsImpl = () =>
+Upwork.GetJobsImpl = (optional status as text) =>
     let
+        jobstatus = if status is null then [] else [status = status],
         url = jobUrl,
         teams = Upwork.GetTeams(),
         response = Table.AddColumn(teams, "Jobs", each 
                                                     try Upwork.GetJobsPerTeam(url, 
                                                                         [buyer_team__reference=Text.From([team_id]), 
-                                                                        include_sub_teams=Text.From(1)])
+                                                                        include_sub_teams=Text.From(1)] & jobstatus)
                                                     otherwise null),
 
         table = Table.ExpandListColumn(response, "Jobs"),
@@ -1335,6 +1339,76 @@ Upwork.GetJobsImpl = () =>
         transformedTable;
 
 
+//
+// Get Job applications per Page
+// url -> job application url
+// parameters -> parameters to pass to API, mostly we will pass pagination param
+// Note: In some cases you can view a team but may not have access to see jobs in that team,
+// so passing true in 4th param of Upwork.Request
+//
+Upwork.GetJobApplicationsPerPage = (url, parameters) =>
+    let
+        response =  Json.Document(Upwork.Request(false, url, parameters, true))
+    in
+        response;
+
+Upwork.GetJobApplicationsCount = (url, parameters) =>
+    let
+        jobApps = Upwork.GetJobApplicationsPerPage(url, parameters & [page=Text.From(0) & ";" & Text.From(recordsPerPage)]),
+        jobAppsCount = jobApps[data][paging][total]
+    in
+        jobAppsCount;
+//
+// Get Job applications per team per job
+// url -> job url
+// parameters -> team_reference parameter
+Upwork.GetJobApplicationsPerTeamJob = (url, parameters) =>
+    let
+        jobsAppJsonPaginated = List.Generate( () => 
+                        [pageResult = null, count = 0, nextOffset = 0, counter = 1],
+                        each Number.From([count]) <> 0 or [counter] <= 1,
+                        each [pageResult = try Upwork.GetJobApplicationsPerPage(url, 
+                                                             parameters & [page=Text.From([nextOffset]) & ";" & Text.From(recordsPerPage)]) 
+                                            otherwise null, 
+                                count = try pageResult[data][paging][count] otherwise 0,
+                                nextOffset = [nextOffset] + recordsPerPage,
+                                counter = [counter] + 1],
+                        each [pageResult]),
+        
+        jobsAppJsonPaginated2 = List.Skip(jobsAppJsonPaginated, 1)
+    in 
+        jobsAppJsonPaginated;
+
+//
+// Get Job applications for open jobs
+// Tested for: 
+// no open jobs
+// some open jobs
+//
+[DataSource.Kind="Upwork"]
+shared Upwork.GetJobApplications = Value.ReplaceType(Upwork.GetJobApplicationsImpl, Upwork.GetJobApplicationsImplType);
+
+Upwork.GetJobApplicationsImplType = type function() as table
+        meta [
+            Documentation.Name = Extension.LoadString("Upwork.GetJobApplications.Name"),
+            Documentation.LongDescription = Extension.LoadString("Upwork.GetJobApplications.LongDescription")
+        ];
+
+
+Upwork.GetJobApplicationsImpl = () =>
+    let
+        url = jobApplicationUrl,
+        jobs = Upwork.GetJobs("open"),
+        response = Table.AddColumn(jobs, "num_applications", each 
+                                                     Upwork.GetJobApplicationsCount(url, 
+                                                                        [buyer_team__reference=Text.From([team_id]), 
+                                                                        job_key=Text.From([job_text_id])] )
+                                                    ),
+
+        selectedColumns = Table.SelectColumns(response, {"team_id", "job_text_id", "num_applications"})
+
+    in
+        selectedColumns;
 
 //
 // Get Freelancer's Profile
