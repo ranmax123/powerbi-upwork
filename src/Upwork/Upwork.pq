@@ -1,6 +1,6 @@
 ﻿
 // This file contains Upwork connector logic
-[version = "2.0.0"]
+[version = "3.0.0"]
 section Upwork;
 
 windowWidth = 1024;
@@ -36,13 +36,17 @@ jobApplicationUrl = "/api/hr/v4/clients/applications.json";
 freelancePrefixUrl = "/api/profiles/v1/providers/";
 freelanceSuffixUrl = "/brief.json";
 
-billingPrefixUrl = "/gds/finreports/v2/buyer_teams/";
+billingPrefixUrl = "/gds/finreports/v2/buyer_companies/";
 billingSuffixUrl = "/billings";
 
+hoursPrefixUrl1 = "/gds/timereports/v1/companies/";
+hoursPrefixUrl2 = "/teams/";
+hoursSuffixUrl = "/hours";
 
 //Billing query
 billingQuery = "SELECT SUM(amount) WHERE assignment__reference=";
-billingQuery2 = "SELECT assignment__reference, SUM(amount) WHERE date>='$sdate$' and date <='$edate$'";
+billingQuery2 = "SELECT reference, date, date_due, assignment__reference, type, subtype, SUM(amount) WHERE date>='$sdate$' and date <='$edate$'";
+totalHoursQuery = "SELECT assignment_ref, SUM(hours) where worked_on >= '$sdate$' and worked_on <= '$edate$'";
 
 //Upwork public Urls
 freelanceProfileUrl = "https://www.upwork.com/freelancers/";
@@ -50,23 +54,29 @@ contractProfileUrl = "https://www.upwork.com/ab/c/";
 
 //Upwork columns to be retrieved
 teamColumns = {
+    "id",
     "reference",
      "name",
     "company__reference",
+    "parent_team__id",
     "company_name"   
    };
 
 teamOutputColumns = {
+    "team_uid",
     "team_id",
     "team_name",
     "company_id",
+    "company_uid",
     "company_name"   
    };
 
 teamOutputFinalColumns = {
+    "team_uid",
     "team_id",
     "team_name",
     "company_id",
+    "company_uid",
     "company_name",
     "server_time"
    };
@@ -93,7 +103,8 @@ contractColumns = {
     "provider__name",
     "provider_team__name",
     "feedback",
-    "offer_id"
+    "offer_id",
+    "fixed_charge_amount_agreed"
    };
 
  contractOutputColumns = {
@@ -116,7 +127,8 @@ contractColumns = {
     "provider__name",
     "provider_team__name",
     "feedback",
-    "offer_id"
+    "offer_id",
+    "fixed_price_budget"
    };
 
 contractOutputFinalColumns = {
@@ -136,7 +148,8 @@ contractOutputFinalColumns = {
     "freelancer_user_id",
     "feedback_to_client_score",
     "feedback_to_freelancer_score",
-    "offer_id"
+    "offer_id",
+    "fixed_price_budget"
    };
 
 contractMasterColumns = {"server_time", "auth_user", "engagements"};
@@ -198,6 +211,9 @@ freelancerColumns = {
     "dev_city",
     "dev_is_affiliated",
     "dev_ac_agencies",
+    "dev_total_hours",
+    "dev_bill_rate",
+     "dev_adj_score",
     "_is_error",
     "_error_code",
     "_error_message"
@@ -211,6 +227,9 @@ freelancerOutputColumns = {
     "city",
     "is_affiliated_to_agency",
     "dev_ac_agencies",
+    "total_hours",
+    "profile_hourly_rate",
+    "job_success_score",
     "_is_error",
     "_error_code",
     "_error_message"
@@ -225,6 +244,9 @@ freelancerOutputFinalColumns = {
     "city",
     "is_affiliated_to_agency",
     "agency_name",
+      "total_hours",
+    "profile_hourly_rate",
+    "job_success_score",
     "freelancer_profile_url",
     "_is_error",
     "_error_code",
@@ -236,11 +258,23 @@ freelancerMasterColumns = {"auth_user", "profile"};
 billingMasterColumns = {"auth_user", "table"};
 
 billingOutputFinalColumns = {
-
-    "team_id",
+    "txn_id",
+    "txn_date",
+    "txn_date_due",
     "contract_id",
-    "billing_month",
+    "type",
+    "accounting_subtype",
     "amount_spent"
+};
+
+hoursWorkedMasterColumns = {"auth_user", "table"};
+
+hoursWorkedOutputFinalColumns = {
+
+    "company_uid",
+    "worked_on_month",
+    "contract_id",
+    "hours_worked"
 };
 
 errorColumns = {
@@ -326,10 +360,10 @@ queryCustomFields = "query customFields ($input: CustomFieldsInput!, $limit: Int
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetJobApplications()
+//         source = Upwork.GetBilling()
 //     in
 //         source;
-
+// 
 shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
 Upwork.NavImplType = type function() as table
         meta [
@@ -346,6 +380,7 @@ Upwork.NavImpl =  () as table =>
             {"Freelancers",   "Freelancers",  Upwork.GetFreelancers() , "Table",    "Table",    true},
             {"Jobs",   "Jobs",  Upwork.GetJobs() , "Table",    "Table",    true},
             {"Billing",   "Billing",  Upwork.GetBilling() , "Table",    "Table",    true},
+            {"Contract Hours",   "Contract Hours",  Upwork.GetTotalHoursWorked() , "Table",    "Table",    true},
             {"_Enterprise Reporting Insights", "_Enterprise Reporting Insights", Upwork.GetEntReportingObjects(), "Table", "Table", false}
         }),
         NavTable = Upwork.ToNavigationTable(objects, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
@@ -1215,7 +1250,7 @@ Upwork.GetContractsImpl = () =>
         transformedDate = Table.TransformColumns(withProfileUrl, 
                                                        {{"accept_date", each Upwork.FromTimestampToDate(_)},
                                                        {"start_date", each Upwork.FromTimestampToDate(_)},
-                                                       {"end_date", each Upwork.FromTimestampToDate(_)}                                                                           
+                                                       {"end_date", each Upwork.FromTimestampToDate(_)}
                                                        }),
 
         transformedTable = Table.TransformColumnTypes(transformedDate,
@@ -1223,6 +1258,7 @@ Upwork.GetContractsImpl = () =>
                 {"buyer_team_id", Int64.Type},
                 {"hourly_charge_rate", Currency.Type}, 
                 {"weekly_hours_limit", type number}, 
+                {"fixed_price_budget", Currency.Type}, 
                 {"freelancer_id", Int64.Type}, 
                 {"offer_id", Int64.Type},
                 {"contract_id", Int64.Type},
@@ -1484,7 +1520,10 @@ Upwork.GetFreelancersImpl = () =>
 
         //UPDATE DATA TYPES
         transformedTable = Table.TransformColumnTypes(freelancerSelectedTable,
-                        {{"freelancer_id", Int64.Type}})
+                        {{"freelancer_id", Int64.Type},
+                        {"total_hours", Int64.Type},
+                        {"job_success_score", type number},
+                        {"profile_hourly_rate", Currency.Type}})
     in 
        transformedTable;
 
@@ -1531,12 +1570,12 @@ Upwork.GetBillingByTeamByContract = (teamRef, contractRef) =>
 
 // 
 // Get Billing details
-// teamRef -> reference team
+// companyRef -> reference company
 // querydate -> date filter for query
 //
-Upwork.GetBillingByTeam = (teamRef, querydate) =>
+Upwork.GetBillingByCompany = (companyRef, querydate) =>
     let
-        billingFullUrl = billingPrefixUrl & teamRef & billingSuffixUrl,
+        billingFullUrl = billingPrefixUrl & companyRef & billingSuffixUrl,
         billingQuerySDate = Text.Replace(billingQuery2, "$sdate$", Date.ToText(querydate, "yyyy-MM-dd")),
         billingQueryEDate = Text.Replace(billingQuerySDate, 
                                         "$edate$", 
@@ -1565,7 +1604,10 @@ Upwork.GetBillingImplType = type function() as table
 Upwork.GetBillingImpl = () =>
     let
         teams = Upwork.GetTeams(),
-        teamsWithMonths = Table.AddColumn(teams, "billing_month", 
+        withCompaniesRef = Table.SelectColumns(teams, "company_id"),
+        withUniqueCompaniesRef = Table.Distinct(withCompaniesRef),
+
+        teamsWithMonths = Table.AddColumn(withUniqueCompaniesRef, "billing_month", 
                                           each Upwork.GetMonthFirstDates(#date(2018,1,1), 
                                                              DateTime.Date(DateTime.LocalNow())), 
                                           type date),
@@ -1574,7 +1616,7 @@ Upwork.GetBillingImpl = () =>
       
         //Get billing per team and per month
         response = Table.AddColumn(queryTable, "Billing", each 
-                                                    try Upwork.GetBillingByTeam(Text.From([team_id]), [billing_month])
+                                                    try Upwork.GetBillingByCompany(Text.From([company_id]), [billing_month])
                                                     otherwise null),
         
         expandedMasterBilling = Table.ExpandRecordColumn(response, "Billing", billingMasterColumns, billingMasterColumns),
@@ -1582,27 +1624,129 @@ Upwork.GetBillingImpl = () =>
         expandedRowsList = Table.ExpandListColumn(expandedRows, "rows"),
         expandedColumns = Table.ExpandRecordColumn(expandedRowsList, "rows", {"c"}, {"c"}),
 
-        //first column is contract_id
+        //first column is txn_id
         col1 = Table.AddColumn(expandedColumns, "reference", each if Value.Is([c], type list) then List.First([c]) 
                                                              else [c]),
        
+        col2 = Table.AddColumn(col1, "date",
+                                            each if Value.Is([c], type list) then [c]{1} 
+                                            else [c]), 
+
+        col3 = Table.AddColumn(col2, "date_due",
+                                            each if Value.Is([c], type list) then [c]{2} 
+                                            else [c]), 
+        col4 = Table.AddColumn(col3, "assignment__reference",
+                                            each if Value.Is([c], type list) then [c]{3} 
+                                            else [c]), 
+
+        col5 = Table.AddColumn(col4, "type",
+                                            each if Value.Is([c], type list) then [c]{4} 
+                                            else [c]), 
+
+        col6 = Table.AddColumn(col5, "subtype",
+                                            each if Value.Is([c], type list) then [c]{5} 
+                                            else [c]), 
         //last column is amount_spent
-        col2 = Table.AddColumn(col1, "amount", each if Value.Is([c], type list) then List.Last([c]) else [c]),
-        expandedReference = Table.ExpandRecordColumn(col2, "reference", {"v"}, {"contract_id"}),
-        expandedAmount = Table.ExpandRecordColumn(expandedReference, "amount", {"v"}, {"amount_spent"}),
+        colN = Table.AddColumn(col6, "amount", each if Value.Is([c], type list) then List.Last([c]) else [c]),
+
+        expandedReference = Table.ExpandRecordColumn(colN, "reference", {"v"}, {"txn_id"}),
+        
+        expandedDate = Table.ExpandRecordColumn(expandedReference, "date", {"v"}, {"txn_date"}),
+        expandedDateDue = Table.ExpandRecordColumn(expandedDate, "date_due", {"v"}, {"txn_date_due"}),
+        
+        expandedContract = Table.ExpandRecordColumn(expandedDateDue, "assignment__reference", {"v"}, {"contract_id"}),
+        
+        expandedType = Table.ExpandRecordColumn(expandedContract, "type", {"v"}, {"type"}),
+        expandedSubType = Table.ExpandRecordColumn(expandedType, "subtype", {"v"}, {"accounting_subtype"}),
+
+        expandedAmount = Table.ExpandRecordColumn(expandedSubType, "amount", {"v"}, {"amount_spent"}),
+
         billingTable = Table.SelectColumns(expandedAmount, billingOutputFinalColumns),
 
         filteredTable = Table.SelectRows(billingTable, each [contract_id] <> null),
 
         transformedTable = Table.TransformColumnTypes(filteredTable,
                 {{"amount_spent", Currency.Type},
-                {"billing_month", type date},
-                {"team_id", Int64.Type},
                 {"contract_id", Int64.Type}})
 
     in
         transformedTable;
 
+// 
+// Get hours worked details
+// companyid -> company id
+// querydate -> date filter for query
+//
+Upwork.GetHoursWorkedByTeam = (companyid, querydate) =>
+    let
+        totalHoursFullUrl = hoursPrefixUrl1 & companyid,
+        totalHoursQuerySDate = Text.Replace(totalHoursQuery, "$sdate$", Date.ToText(querydate, "yyyy-MM-dd")),
+        totalHoursQueryEDate = Text.Replace(totalHoursQuerySDate, 
+                                        "$edate$", 
+                                        Date.ToText(Date.AddDays(Date.AddMonths(querydate,1),-1), "yyyy-MM-dd")),
+        parameters = [tq=totalHoursQueryEDate],
+        response = Json.Document(Upwork.Request(false, totalHoursFullUrl, parameters))
+    in
+        response;
+// 
+// Get GetTotalHoursWorked details
+//
+[DataSource.Kind="Upwork"]
+shared Upwork.GetTotalHoursWorked = Value.ReplaceType(Upwork.GetTotalHoursWorkedImpl, Upwork.GetTotalHoursWorkedImplType);
+
+Upwork.GetTotalHoursWorkedImplType = type function() as table
+        meta [
+            Documentation.Name = Extension.LoadString("Upwork.GetTotalHoursWorked.Name"),
+            Documentation.LongDescription = Extension.LoadString("Upwork.GetTotalHoursWorked.LongDescription")
+        ];
+
+Upwork.GetTotalHoursWorkedImpl = () =>
+    let
+        teams = Upwork.GetTeams(),
+        teamsWithCompanyUID = Table.SelectColumns(teams, "company_uid"),
+        uniqueCompanyUIDs = Table.Distinct(teamsWithCompanyUID),
+
+        teamsWithMonths = Table.AddColumn(uniqueCompanyUIDs, "worked_on_month", 
+                                          each Upwork.GetMonthFirstDates(#date(2018,1,1), 
+                                                             DateTime.Date(DateTime.LocalNow())), 
+                                          type date),
+       
+        queryTable = Table.ExpandListColumn(teamsWithMonths, "worked_on_month"),
+      
+        //Get hours worked per company per team and per month
+        response = Table.AddColumn(queryTable, "Hours", each 
+                                                    try Upwork.GetHoursWorkedByTeam(
+                                                        Text.From([company_uid]),
+                                                        [worked_on_month])
+                                                    otherwise null),
+        
+        expandedMasterHours = Table.ExpandRecordColumn(response, "Hours", hoursWorkedMasterColumns, hoursWorkedMasterColumns),
+        expandedRows = Table.ExpandRecordColumn(expandedMasterHours, "table", {"rows"}, {"rows"}),
+        expandedRowsList = Table.ExpandListColumn(expandedRows, "rows"),
+        expandedColumns = Table.ExpandRecordColumn(expandedRowsList, "rows", {"c"}, {"c"}),
+
+        //first column is contract_id
+        col1 = Table.AddColumn(expandedColumns, "assignment_ref", each if Value.Is([c], type list) then List.First([c]) 
+                                                             else [c]),
+       
+        //last column is hours
+        colN = Table.AddColumn(col1, "hours", each if Value.Is([c], type list) then List.Last([c]) else [c]),
+
+        expandedReference = Table.ExpandRecordColumn(colN, "assignment_ref", {"v"}, {"contract_id"}),
+        expandedHours = Table.ExpandRecordColumn(expandedReference, "hours", {"v"}, {"hours_worked"}),
+        
+        hoursTable = Table.SelectColumns(expandedHours, hoursWorkedOutputFinalColumns),
+
+        filteredTable = Table.SelectRows(hoursTable, each [contract_id] <> null),
+
+        transformedTable = Table.TransformColumnTypes(filteredTable,
+                {
+                {"contract_id", Int64.Type},
+                {"worked_on_month", type date}, 
+                {"hours_worked", type number}
+                })
+    in
+        transformedTable;
 
 /* Helper functions for making OAuth 2.0 requests taken from
 https://github.com/CurtHagenlocher/Twitter/blob/master/Twitter.pq

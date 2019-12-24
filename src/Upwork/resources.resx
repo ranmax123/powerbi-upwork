@@ -177,6 +177,12 @@
   <data name="Upwork.GetTeams.Name" xml:space="preserve">
     <value>Upwork.GetTeams</value>
   </data>
+  <data name="Upwork.GetTotalHoursWorked.LongDescription" xml:space="preserve">
+    <value>Get Contract hours</value>
+  </data>
+  <data name="Upwork.GetTotalHoursWorked.Name" xml:space="preserve">
+    <value>Upwork.GetTotalHoursWorked</value>
+  </data>
   <data name="YesString" xml:space="preserve">
     <value>Yes</value>
   </data>
