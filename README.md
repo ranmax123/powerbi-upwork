@@ -21,11 +21,29 @@ The connector pulls following data from Upwork API (Note: The data pulled from t
 
 4.  Freelancers
 
-5.  Billing (pulled at a monthly level from Jan 2018)
+5.  Billing 
 
 6.  Enterprise Reporting Insights (newly added!)
 7.  Enterprise Custom Fields (newly added!)
 
+Release notes
+=============
+
+**Dec 2019**
+1. Billing object now has data at Transaction Id level. 
+    New fields added -> txn_id, txn_date, type, accounting_subtype 
+
+2. Added additional columns in Contracts and Freelancers Object 
+    Fields added:
+    Contracts -> fixed_price_budget, hourly_charge_rate
+    Freelancers -> total_hours, profile_hourly_rate
+
+3. New object: Contract Hours
+    To get number of hours worked in a contract
+
+
+Setup instructions
+==================
 
 Follow steps below to setup and use the Upwork connector.
 
