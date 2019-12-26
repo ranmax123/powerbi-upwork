@@ -31,14 +31,19 @@ Release notes
 
 **Dec 2019**
 1. Billing object now has data at Transaction Id level. 
+
     New fields added -> txn_id, txn_date, type, accounting_subtype 
 
-2. Added additional columns in Contracts and Freelancers Object 
+2. Added additional columns in Contracts and Freelancers Object
+
     Fields added:
+
     Contracts -> fixed_price_budget, hourly_charge_rate
+
     Freelancers -> total_hours, profile_hourly_rate
 
 3. New object: Contract Hours
+
     To get number of hours worked in a contract
 
 
