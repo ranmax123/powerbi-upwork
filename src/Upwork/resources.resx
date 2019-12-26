@@ -153,17 +153,35 @@
   <data name="Upwork.GetFreelancers.Name" xml:space="preserve">
     <value>Upwork.GetFreelancers</value>
   </data>
+  <data name="Upwork.GetJobApplications.LongDescription" xml:space="preserve">
+    <value>Get number of job applications for open jobs</value>
+  </data>
+  <data name="Upwork.GetJobApplications.Name" xml:space="preserve">
+    <value>Upwork.GetJobApplications</value>
+  </data>
   <data name="Upwork.GetJobs.LongDescription" xml:space="preserve">
     <value>Get Jobs information from Upwork</value>
   </data>
   <data name="Upwork.GetJobs.Name" xml:space="preserve">
     <value>Upwork.GetJobs</value>
   </data>
+  <data name="Upwork.GetJobs.Status.LongDescription" xml:space="preserve">
+    <value>Job status: open, filled, cancelled</value>
+  </data>
+  <data name="Upwork.GetJobs.Status.Name" xml:space="preserve">
+    <value>Upwork.GetJobs.Status</value>
+  </data>
   <data name="Upwork.GetTeams.LongDescription" xml:space="preserve">
     <value>Get Teams information from Upwork</value>
   </data>
   <data name="Upwork.GetTeams.Name" xml:space="preserve">
     <value>Upwork.GetTeams</value>
+  </data>
+  <data name="Upwork.GetTotalHoursWorked.LongDescription" xml:space="preserve">
+    <value>Get Contract hours</value>
+  </data>
+  <data name="Upwork.GetTotalHoursWorked.Name" xml:space="preserve">
+    <value>Upwork.GetTotalHoursWorked</value>
   </data>
   <data name="YesString" xml:space="preserve">
     <value>Yes</value>
