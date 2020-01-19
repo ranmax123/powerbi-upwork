@@ -356,14 +356,20 @@ queryCompanySelector = "query  {   companySelector {     items {       title    
 
 queryCustomFields = "query customFields ($input: CustomFieldsInput!, $limit: Int, $offset: Int)  {  customFields (input: $input, offset: $offset, limit: $limit){     id    itemId    responseId    typeSnap    labelSnap    displayValueSnap    offerId    rollupAssignmentId    jobPostingId    byoInvitationId    buyItNowId    questionnaireResponsesId    stale    termSectionId }}";
 
+
+queryOffers = "query offers($after: String, $first: Int!) {  organization {    id    clientOffers(pagination: {after: $after, first: $first}) {      totalCount      edges {        cursor        node {          id          title          offerCreatedDateTime          contactPerson {            id            nid            rid          }          offer {            id            offerTerms {              expectedEndDate              expectedStartDate            }            offerFeatures {              purchaseOrder {                id              }              privateTalentCloud {                name              }              eor            }          }        }      }    }  }}";
+
+
+queryMilestones = "query milestones($contractid: ID){  contract(id: $contractid) {    id    title    milestones {      id      description      dueDateTime      state      createdBy {        id        nid        rid      }    }  }}";
+
 [DataSource.Kind="Upwork", Publish="Upwork.Publish"]
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetBilling()
+//         source = Upwork.GetContracts()
 //     in
 //         source;
-// 
+
 shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
 Upwork.NavImplType = type function() as table
         meta [
@@ -377,10 +383,13 @@ Upwork.NavImpl =  () as table =>
             {"Name",       "Key",  "Data", "ItemKind", "ItemName", "IsLeaf"},{
             {"Teams",   "Teams",  Upwork.GetTeams() , "Table",    "Table",    true},
             {"Contracts",   "Contracts",  Upwork.GetContracts() , "Table",    "Table",    true},
+            {"Milestones", "Milestones", Upwork.GetMilestones(), "Table", "Table", true},
+            {"Offers",   "Offers",  Upwork.GetOffers() , "Table",    "Table",    true},
             {"Freelancers",   "Freelancers",  Upwork.GetFreelancers() , "Table",    "Table",    true},
             {"Jobs",   "Jobs",  Upwork.GetJobs() , "Table",    "Table",    true},
             {"Billing",   "Billing",  Upwork.GetBilling() , "Table",    "Table",    true},
             {"Contract Hours",   "Contract Hours",  Upwork.GetTotalHoursWorked() , "Table",    "Table",    true},
+
             {"_Enterprise Reporting Insights", "_Enterprise Reporting Insights", Upwork.GetEntReportingObjects(), "Table", "Table", false}
         }),
         NavTable = Upwork.ToNavigationTable(objects, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
@@ -889,11 +898,9 @@ Upwork.GetTopLevelEnterprises = () =>
                         companySelectorColumns, 
                         companySelectorOutputColumns),
        
-       #"Filtered Rows" = Table.SelectRows(#"Expanded Column1", each ([organizationEnterpriseType] <> null)),
+        #"Filtered Rows" = Table.SelectRows(#"Expanded Column1", each ([organizationEnterpriseType] <> null)),
        
-       // #"Filtered Rows" = Table.SelectRows(#"Expanded Column1", each ([companyOrgId] = "1036585057712848896")),
-
-        TopLevelEnt = Table.SelectColumns(#"Filtered Rows", {"companyTitle", "companyOrgId", "companyReference"}),
+        TopLevelEnt = Table.SelectColumns( #"Filtered Rows" , {"companyTitle", "companyOrgId", "companyReference"}),
         TopLevelEnt2 = Table.TransformColumnTypes(TopLevelEnt, {{"companyReference", Int64.Type}})
 
     in
@@ -1162,7 +1169,114 @@ Upwork.GetTeamsImpl = () =>
     in
         transformedTable;
 
+//
+// Get offers
+//
+[DataSource.Kind="Upwork"]
+shared Upwork.GetOffers = Value.ReplaceType(Upwork.GetOffersImpl, Upwork.GetOffersImplType);
 
+Upwork.GetOffersImplType = type function() as table
+        meta [
+            Documentation.Name = Extension.LoadString("Upwork.GetOffers.Name"),
+            Documentation.LongDescription = Extension.LoadString("Upwork.GetOffers.LongDescription")
+        ];
+
+//
+// Get Offers
+// Tested for:
+// Enterprise - SUCCESS
+// Non Enterprise - SUCCESS
+//
+Upwork.GetOffersImpl = () as any =>
+
+    let
+        table = Upwork.GetTopLevelEnterprises(),
+        
+        data = Table.AddColumn(table, "source", 
+                            each Upwork.GetOffersPagedData(
+                                                            [companyOrgId],//orgid
+                                                              1, //current page to fetch
+                                                              -1, //fetch all pages
+                                                              0, //offset
+                                                             queryOffers,//query 
+                                                             {})),
+        
+        #"Expanded list" = Table.ExpandListColumn(data, "source"),
+
+        #"Expanded source" = Table.ExpandRecordColumn( #"Expanded list", "source", {"data"}, {"data"}),
+        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded source", "data", {"organization"}, {"organization"}),
+        #"Expanded organization" = Table.ExpandRecordColumn(#"Expanded data", "organization", {"clientOffers"}, {"clientOffers"}),
+       
+        #"Expanded clientOffers" = Table.ExpandRecordColumn(#"Expanded organization" , "clientOffers", {"edges"}, {"clientOffers.edges"}),
+        #"Expanded clientOffers.edges" = Table.ExpandListColumn(#"Expanded clientOffers", "clientOffers.edges"),
+        #"Expanded clientOffers.edges1" = Table.ExpandRecordColumn(#"Expanded clientOffers.edges", "clientOffers.edges", {"node"}, {"clientOffers.edges.node"}),
+        #"Expanded clientOffers.edges.node" = Table.ExpandRecordColumn(#"Expanded clientOffers.edges1", "clientOffers.edges.node", {"title", "offerCreatedDateTime", "contactPerson", "offer"}, {"clientOffers.edges.node.title", "clientOffers.edges.node.offerCreatedDateTime", "clientOffers.edges.node.contactPerson", "clientOffers.edges.node.offer"}),
+        #"Expanded clientOffers.edges.node.contactPerson" = Table.ExpandRecordColumn(#"Expanded clientOffers.edges.node", "clientOffers.edges.node.contactPerson", {"id", "nid", "rid"}, {"clientOffers.edges.node.contactPerson.id", "clientOffers.edges.node.contactPerson.nid", "clientOffers.edges.node.contactPerson.rid"}),
+        #"Expanded clientOffers.edges.node.offer" = Table.ExpandRecordColumn(#"Expanded clientOffers.edges.node.contactPerson", "clientOffers.edges.node.offer", {"id", "offerTerms", "offerFeatures"}, {"clientOffers.edges.node.offer.id", "clientOffers.edges.node.offer.offerTerms", "clientOffers.edges.node.offer.offerFeatures"}),
+        #"Expanded clientOffers.edges.node.offer.offerTerms" = Table.ExpandRecordColumn(#"Expanded clientOffers.edges.node.offer", "clientOffers.edges.node.offer.offerTerms", {"expectedEndDate", "expectedStartDate"}, {"expectedEndDate", "expectedStartDate"}),
+        #"Expanded clientOffers.edges.node.offer.offerFeatures" = Table.ExpandRecordColumn(#"Expanded clientOffers.edges.node.offer.offerTerms", "clientOffers.edges.node.offer.offerFeatures", {"purchaseOrder", "privateTalentCloud", "eor"}, {"purchaseOrder", "privateTalentCloud", "eor"}),
+        #"Expanded purchaseOrder" = Table.ExpandRecordColumn(#"Expanded clientOffers.edges.node.offer.offerFeatures", "purchaseOrder", {"id"}, {"purchase_order"}),
+        #"Renamed Columns" = Table.RenameColumns(#"Expanded purchaseOrder",{{"clientOffers.edges.node.title", "offer_title"}, {"clientOffers.edges.node.offerCreatedDateTime", "offer_created_date"}, {"clientOffers.edges.node.contactPerson.nid", "contact_person_username"}, {"clientOffers.edges.node.offer.id", "offer_id"}, {"expectedEndDate", "expected_end_date"}, {"expectedStartDate", "expected_start_date"}, {"eor", "eor"}}),
+        #"Removed Other Columns" = Table.SelectColumns(#"Renamed Columns",{"offer_title", "offer_created_date", "contact_person_username", "offer_id", "expected_end_date", "expected_start_date", "purchase_order", "privateTalentCloud", "eor"}),
+        #"Reordered Columns" = Table.ReorderColumns(#"Removed Other Columns",{"offer_id", "offer_title", "offer_created_date", "contact_person_username", "expected_end_date", "expected_start_date", "purchase_order", "privateTalentCloud", "eor"}),
+
+        #"Filtered Rows" = Table.SelectRows(#"Reordered Columns" , each ([offer_id] <> null)),
+
+        #"Changed Type" = Table.TransformColumnTypes(#"Filtered Rows",
+                            {{"offer_created_date", type datetimezone}, 
+                            {"expected_end_date", type datetimezone}, 
+                            {"expected_start_date", type datetimezone}}),
+
+        #"Changed Type1" = Table.TransformColumnTypes(#"Changed Type",
+                            {{"offer_created_date", type date}, 
+                            {"expected_end_date", type date}, 
+                            {"expected_start_date", type date}, 
+                            {"eor", type logical}})
+    in
+        #"Changed Type1";
+ 
+// 
+//
+// Get offers Paged Data
+    // orgId -> Org Id
+    // pageNumber -> the current page number
+    // numPagestoFetch -> number of pages of data to fetch
+    // offset -> record offset
+    // query -> query to fire
+    // result -> result of the previous query
+// Tested for:
+// 1 team - SUCCESS
+// More than 1 teams - SUCCESS
+//
+
+Upwork.GetOffersPagedData = (orgId, pageNumber, numPagestoFetch, offset, query, result) =>
+    let
+        limit = testLimit,
+        variable = [first = limit, after = Text.From(offset)],
+        graphqlRequest = [query = query, variables = variable],
+        
+        response = Json.Document(Upwork.GraphQLRequest(graphqlRequest, orgId)),
+
+        newResult = List.Combine({result, {response}}),
+        offers = try response[data][organization][clientOffers][edges] 
+                                otherwise [],
+        
+        newOffset = offset + limit
+    in
+         if pageNumber = numPagestoFetch or 
+            (Value.Is(offers, type record ) and Record.FieldCount(offers) = 0)
+            or 
+            (Value.Is(offers, type list ) and List.Count(offers) = 0)
+            
+            then //no more records to fetch or error
+               newResult
+            else
+                Upwork.GetOffersPagedData(orgId,
+                                            pageNumber + 1, 
+                                            numPagestoFetch, 
+                                            newOffset, 
+                                            query, 
+                                            newResult);
 //
 // Get Contracts per Page
 // url -> engagement url
@@ -1177,13 +1291,14 @@ Upwork.GetContractsPerPage = (url, parameters) =>
 //
 // Get Contracts using pagination
 //
-Upwork.GetContractsPaged = (url) =>
+Upwork.GetContractsPaged = (url, optional status as text) =>
     
     let
+        statusParam = if status <> null then [status = status] else [],
         contractsJsonPaginated = List.Generate( () => 
                         [pageResult = null, total_items = 0, nextOffset = 0, counter = 1],
                          each Number.From([total_items]) <> 0 or [counter] <= 1,
-                        each [pageResult = try Upwork.GetContractsPerPage(url, 
+                        each [pageResult = try Upwork.GetContractsPerPage(url, statusParam &
                                                        [page=Text.From([nextOffset]) & ";" & Text.From(recordsPerPage)]) 
                                            otherwise null, 
                                 total_items = try pageResult[engagements][lister][total_items] otherwise 0,
@@ -1269,6 +1384,86 @@ Upwork.GetContractsImpl = () =>
         transformedTable;
 
 
+//
+// Get milestones
+//
+[DataSource.Kind="Upwork"]
+shared Upwork.GetMilestones = Value.ReplaceType(Upwork.GetMilestonesImpl, Upwork.GetMilestonesImplType);
+
+Upwork.GetMilestonesImplType = type function() as table
+        meta [
+            Documentation.Name = Extension.LoadString("Upwork.GetMilestones.Name"),
+            Documentation.LongDescription = Extension.LoadString("Upwork.GetMilestones.LongDescription")
+        ];
+
+//
+// Get milestone data for active contracts
+// Tested for:
+// Enterprise - 
+// Non Enterprise - 
+//
+Upwork.GetMilestonesImpl = () as any =>
+
+    let  //get mapping between teams_id -> company ref -> company Org Id
+        teams = Upwork.GetTeams(),
+        topLevelEnt = Upwork.GetTopLevelEnterprises(),
+
+        #"Merged Queries" = Table.NestedJoin(teams, {"company_id"}, topLevelEnt, {"companyReference"}, "Companies", JoinKind.Inner),
+        #"Expanded Companies" = Table.ExpandTableColumn(#"Merged Queries", "Companies", {"companyOrgId"}, {"companyOrgId"}),
+
+        //getting milestone data for active contracts
+        contracts = Upwork.GetContractsPaged(contractUrl, "active"),
+
+        contractsTransformed = Table.TransformColumnTypes(contracts, {{"buyer_team_id", Int64.Type}}),
+    
+        #"Merged Queries2" = Table.NestedJoin(contractsTransformed, {"buyer_team_id"},  #"Expanded Companies", {"team_id"}, "Teams", JoinKind.Inner),
+       
+        #"Expanded Teams" = Table.ExpandTableColumn(#"Merged Queries2", "Teams", {"companyOrgId"}, {"companyOrgId"}),
+
+        requiredData = Table.SelectColumns(#"Expanded Teams", {"contract_id", "companyOrgId"}),
+        
+        data = Table.AddColumn(requiredData , "milestones", 
+                        each Upwork.GetMilestonesPerContract(
+                                                        [companyOrgId],//orgid
+                                                            [contract_id])),
+
+        #"Expanded milestones" = Table.ExpandRecordColumn(data, "milestones", {"data"}, {"data"}),
+        #"Expanded data" = Table.ExpandRecordColumn(#"Expanded milestones", "data", {"contract"}, {"contract"}),
+        #"Expanded contract" = Table.ExpandRecordColumn(#"Expanded data", "contract", {"milestones"}, {"milestones"}),
+        #"Expanded milestones1" = Table.ExpandListColumn(#"Expanded contract", "milestones"),
+        #"Expanded milestones2" = Table.ExpandRecordColumn(#"Expanded milestones1", "milestones", {"id", "description", "dueDateTime", "state", "createdBy"}, {"milestone_id", "milestone_description", "dueDateTime", "milestone_state", "createdBy"}),
+        #"Expanded createdBy" = Table.ExpandRecordColumn(#"Expanded milestones2", "createdBy", {"nid"}, {"nid"}),
+        #"Renamed Columns" = Table.RenameColumns(#"Expanded createdBy",{{"dueDateTime", "milestone_due_date"}, {"nid", "milestone_created_by_username"}}),
+       
+       #"Changed Type" = Table.TransformColumnTypes(#"Renamed Columns",
+                   {{"contract_id", Int64.Type}, 
+                   {"milestone_id", Int64.Type}, 
+                   {"milestone_due_date", type datetimezone}}),
+
+        #"Changed Type1" = Table.TransformColumnTypes(#"Changed Type",
+                    {{"milestone_due_date", type date}}),
+
+        #"Filtered Rows" = Table.SelectRows(#"Changed Type1", each ([milestone_id] <> null))
+
+    in
+        #"Filtered Rows";
+        
+        
+  
+
+//
+// Get Milestones data per contract level
+// orgId -> the company OrgId
+// contract_id -> the contract_id
+//
+Upwork.GetMilestonesPerContract = (orgId, contract_id) as any =>
+    let
+        variable = [contractid = contract_id],
+        graphqlRequest = [query = queryMilestones, variables = variable],
+        
+        response = Json.Document(Upwork.GraphQLRequest(graphqlRequest, orgId))
+    in
+        response;
 
 //
 // Get Jobs per Page
