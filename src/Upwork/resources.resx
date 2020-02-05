@@ -147,6 +147,12 @@
   <data name="Upwork.GetContracts.Name" xml:space="preserve">
     <value>Upwork.GetContracts</value>
   </data>
+  <data name="Upwork.GetContractsExtended.LongDescription" xml:space="preserve">
+    <value>Get additional Contracts fields</value>
+  </data>
+  <data name="Upwork.GetContractsExtended.Name" xml:space="preserve">
+    <value>Upwork.GetContractsExtended</value>
+  </data>
   <data name="Upwork.GetFreelancers.LongDescription" xml:space="preserve">
     <value>Get Freelancers information from Upwork</value>
   </data>
