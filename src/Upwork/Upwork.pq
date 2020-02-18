@@ -1,6 +1,6 @@
 ﻿
 // This file contains Upwork connector logic
-[version = "3.0.0"]
+[version = "3.1.0"]
 section Upwork;
 
 windowWidth = 1024;
@@ -12,9 +12,9 @@ callbackUrl = Json.Document(Extension.Contents("client_application.json"))[Callb
 recordsPerPage = Json.Document(Extension.Contents("client_application.json"))[RecordsPerPage];
 
 //TEST
-testLimit = recordsPerPage;
+GQLLimit = 100;
 contractsPerCall = recordsPerPage;
-delayinSec = 1;
+delayinSecGlobalParam = 1;
 
 //Upwork base Url
 baseUrl = "https://www.upwork.com";
@@ -359,8 +359,7 @@ queryCustomFields = "query customFields ($input: CustomFieldsInput!, $limit: Int
 
 queryOffers = "query offers($after: String, $first: Int!) {  organization {    id    clientOffers(pagination: {after: $after, first: $first}) {      totalCount      edges {        cursor        node {          id          title          offerCreatedDateTime          contactPerson {            id            nid            rid  email name          }  freelancer {            id            nid            rid            freelancerProfile{              aggregates{                jobSuccessScore                topRatedStatus              }            }          }           offer {            id createdUsingBYOFlow           offerTerms {              expectedEndDate              expectedStartDate            }            offerFeatures {              purchaseOrder {                orderNumber              }              privateTalentCloud {                name              }              eor            }          }        }      }    }  }}";
 
-queryContracts = "query contracts($after: String, $first: Int!) {  organization {    id    clientOffers(pagination: {after: $after, first: $first}) {      totalCount      edges {        cursor        node {          contract {            id            title            feedback {              clientFeedback {                score                freelancerResponse                comment              }              freelancerFeedback {                score                clientResponse                comment              }            }          }        }      }    }  }}
-";
+queryContracts = "query contracts($after: String, $first: Int!) {  organization {    id    clientOffers(pagination: {after: $after, first: $first}) {      totalCount      edges {        cursor        node {          contract {            id            title            feedback {              clientFeedback {                score                freelancerResponse                comment              }              freelancerFeedback {                score                clientResponse                comment        recommendScore      }            }          }        }      }    }  }}";
 
 queryMilestones = "query milestones($contractid: ID){  contract(id: $contractid) {    id    title    milestones {      id      description      dueDateTime      state      createdBy {        id        nid        rid      }    }  }}";
 
@@ -951,7 +950,7 @@ Upwork.GetEntProgramSummaryBase = (OrgId, timePeriod) =>
 
 Upwork.GetEntHiringManagerPagedData = (orgId, pageNumber, numPagestoFetch, offset, timePeriod, query, result) =>
     let
-        limit = testLimit,
+        limit = recordsPerPage,
         variable = [limit = limit, offset = offset, timePeriod = timePeriod],
         graphqlRequest = [query = query, variables = variable],
         
@@ -999,7 +998,7 @@ Upwork.GetEntHiringManagerPagedData = (orgId, pageNumber, numPagestoFetch, offse
 
 Upwork.GetEntCategoriesPagedData = (orgId, pageNumber, numPagestoFetch, offset, timePeriod, query, result) =>
     let
-        limit = testLimit,
+        limit = recordsPerPage,
         variable = [limit = limit, offset = offset, timePeriod = timePeriod],
         graphqlRequest = [query = query, variables = variable],
         
@@ -1048,7 +1047,7 @@ Upwork.GetEntCategoriesPagedData = (orgId, pageNumber, numPagestoFetch, offset, 
 
 Upwork.GetEntServicesPagedData = (orgId, pageNumber, numPagestoFetch, offset, timePeriod, query, result) =>
     let
-        limit = testLimit,
+        limit = recordsPerPage,
         variable = [limit = limit, offset = offset, timePeriod = timePeriod],
         graphqlRequest = [query = query, variables = variable],
         
@@ -1098,7 +1097,7 @@ Upwork.GetEntServicesPagedData = (orgId, pageNumber, numPagestoFetch, offset, ti
 
 Upwork.GetCustomFieldsPagedData = (orgId, pageNumber, numPagestoFetch, offset, input, query, result) =>
     let
-        limit = testLimit,
+        limit = recordsPerPage,
         variable = [limit = limit, offset = offset, input = [rollupAssignmentIds = input]],
         graphqlRequest = [query = query, variables = variable],
         
@@ -1281,11 +1280,13 @@ Upwork.GetOffersImpl = () as any =>
 
 Upwork.GetOffersPagedData = (orgId, pageNumber, numPagestoFetch, offset, query, result) =>
     let
-        limit = testLimit,
+        limit = GQLLimit,
         variable = [first = limit, after = Text.From(offset)],
         graphqlRequest = [query = query, variables = variable],
-        
-        response = Json.Document(Upwork.GraphQLRequest(graphqlRequest, orgId)),
+
+        rawResponse = Upwork.GraphQLRequest(graphqlRequest, orgId, null, 5),
+        response = Json.Document(rawResponse),
+      
 
         newResult = List.Combine({result, {response}}),
         offers = try response[data][organization][clientOffers][edges] 
@@ -1356,10 +1357,12 @@ Upwork.GetContractsExtendedImpl = () as any =>
         #"Expanded node" = Table.ExpandRecordColumn(#"Expanded edges1", "node", {"contract"}, {"contract"}),
         #"Expanded contract" = Table.ExpandRecordColumn(#"Expanded node", "contract", {"id", "feedback"}, {"id", "feedback"}),
         #"Expanded feedback" = Table.ExpandRecordColumn(#"Expanded contract", "feedback", {"clientFeedback", "freelancerFeedback"}, {"clientFeedback", "freelancerFeedback"}),
+
         #"Expanded clientFeedback" = Table.ExpandRecordColumn(#"Expanded feedback", "clientFeedback", {"score", "freelancerResponse", "comment"}, {"clientFeedback.score", "clientFeedback.freelancerResponse", "clientFeedback.comment"}),
-        #"Expanded freelancerFeedback" = Table.ExpandRecordColumn(#"Expanded clientFeedback", "freelancerFeedback", {"score", "clientResponse", "comment"}, {"freelancerFeedback.score", "freelancerFeedback.clientResponse", "freelancerFeedback.comment"}),
+
+        #"Expanded freelancerFeedback" = Table.ExpandRecordColumn(#"Expanded clientFeedback", "freelancerFeedback", {"score", "clientResponse", "comment", "recommendScore"}, {"freelancerFeedback.score", "freelancerFeedback.clientResponse", "freelancerFeedback.comment", "clientFeedback.recommendScore"}),
        
-       #"Renamed Columns" = Table.RenameColumns(#"Expanded freelancerFeedback",{{"id", "contract_id"}, {"clientFeedback.score", "feedback_to_freelancer.score_num"}, {"clientFeedback.freelancerResponse", "feedback_to_freelancer.freelancerResponse"}, {"clientFeedback.comment", "feedback_to_freelancer.comment"}, {"freelancerFeedback.score", "feedback_to_client.score_num"}, {"freelancerFeedback.clientResponse", "feedback_to_client.clientResponse"}, {"freelancerFeedback.comment", "feedback_to_client.comment"}}),
+       #"Renamed Columns" = Table.RenameColumns(#"Expanded freelancerFeedback",{{"id", "contract_id"}, {"clientFeedback.score", "feedback_to_freelancer.score_num"}, {"clientFeedback.freelancerResponse", "feedback_to_freelancer.freelancerResponse"}, {"clientFeedback.comment", "feedback_to_freelancer.comment"}, {"freelancerFeedback.score", "feedback_to_client.score_num"}, {"freelancerFeedback.clientResponse", "feedback_to_client.clientResponse"}, {"freelancerFeedback.comment", "feedback_to_client.comment"}, {"clientFeedback.recommendScore", "feedback_to_freelancer.private_recommend_score"}}),
         #"Removed Columns" = Table.RemoveColumns(#"Renamed Columns",{"companyTitle", "companyOrgId", "companyReference"}),
 
         #"Filtered Rows" = Table.SelectRows(#"Removed Columns", each ([contract_id] <> null)),
@@ -1367,7 +1370,8 @@ Upwork.GetContractsExtendedImpl = () as any =>
         #"Changed Type" = Table.TransformColumnTypes( #"Filtered Rows",
                                 {{"contract_id", Int64.Type}, 
                                 {"feedback_to_freelancer.score_num", type number}, 
-                                {"feedback_to_client.score_num", type number}})
+                                {"feedback_to_client.score_num", type number},
+                                {"feedback_to_freelancer.private_recommend_score", Int64.Type}})
     in
         #"Changed Type";
     
@@ -1387,11 +1391,11 @@ Upwork.GetContractsExtendedImpl = () as any =>
 
 Upwork.GetContractsExtendedPagedData = (orgId, pageNumber, numPagestoFetch, offset, query, result) =>
     let
-        limit = testLimit,
+        limit = GQLLimit,
         variable = [first = limit, after = Text.From(offset)],
         graphqlRequest = [query = query, variables = variable],
         
-        response = Json.Document(Upwork.GraphQLRequest(graphqlRequest, orgId)),
+        response = Json.Document(Upwork.GraphQLRequest(graphqlRequest, orgId, null, 5)),
 
         newResult = List.Combine({result, {response}}),
         contracts = try response[data][organization][clientOffers][edges] 
@@ -2106,7 +2110,9 @@ Upwork.Request =
 //GraphQL Request
 Upwork.GraphQLRequest = 
             (graphqlParams, //graphql properties,
-            optional OrgId
+            optional OrgId,
+            optional ManualErrorHandling,
+            optional delayInSecondsLocalParam
             ) =>
     let
         method = "POST" ,
@@ -2117,11 +2123,14 @@ Upwork.GraphQLRequest =
         queryString = Json.FromValue(graphqlParams),
         options = [Headers = [#"Content-type" = "application/json"] & headers & headerOrgId, 
                         Content = queryString] ,
-        
-        manualStatusHandling = [],
-        result = Function.InvokeAfter(()=>Web.Contents(graphQLUrl, manualStatusHandling & options), #duration(0,0,0, delayinSec))
-    in
-        result;
+     
+        manualStatusHandling = if ManualErrorHandling = null then [] else ManualErrorHandling,
+        delayInSec = if delayInSecondsLocalParam = null then delayinSecGlobalParam else delayInSecondsLocalParam,
+
+        result = Function.InvokeAfter(()=>Web.Contents(graphQLUrl, manualStatusHandling & options),
+                    #duration(0,0,0, delayInSec))
+        in
+            result;
 
 /* Authentication functions provided by SDK */
 Upwork.StartLogin = (resourceUrl, state, display) =>
@@ -2236,3 +2245,4 @@ Upwork.ToNavigationTable =
         navigationTable = Value.ReplaceType(table, newTableType)
     in
         navigationTable;
+
