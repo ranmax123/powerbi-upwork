@@ -147,6 +147,12 @@
   <data name="Upwork.GetContracts.Name" xml:space="preserve">
     <value>Upwork.GetContracts</value>
   </data>
+  <data name="Upwork.GetContractsExtended.LongDescription" xml:space="preserve">
+    <value>Get additional Contracts fields</value>
+  </data>
+  <data name="Upwork.GetContractsExtended.Name" xml:space="preserve">
+    <value>Upwork.GetContractsExtended</value>
+  </data>
   <data name="Upwork.GetFreelancers.LongDescription" xml:space="preserve">
     <value>Get Freelancers information from Upwork</value>
   </data>
@@ -170,6 +176,18 @@
   </data>
   <data name="Upwork.GetJobs.Status.Name" xml:space="preserve">
     <value>Upwork.GetJobs.Status</value>
+  </data>
+  <data name="Upwork.GetMilestones.LongDescription" xml:space="preserve">
+    <value>Get active contracts milestones</value>
+  </data>
+  <data name="Upwork.GetMilestones.Name" xml:space="preserve">
+    <value>Upwork.GetMilestones</value>
+  </data>
+  <data name="Upwork.GetOffers.LongDescription" xml:space="preserve">
+    <value>Get Offers</value>
+  </data>
+  <data name="Upwork.GetOffers.Name" xml:space="preserve">
+    <value>Upwork.GetOffers</value>
   </data>
   <data name="Upwork.GetTeams.LongDescription" xml:space="preserve">
     <value>Get Teams information from Upwork</value>

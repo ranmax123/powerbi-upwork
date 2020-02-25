@@ -6,28 +6,48 @@ pull data related to freelance projects. This custom data connector comes pre-pa
 
 The connector connects to Upwork APIs using OAuth 2.0 protocol. Make sure you register an OAuth 2.0 client on Upwork before accessing data through this connector.
 
-**Note 1: Please check folder "build\dist_v1" in this repo for accessing the connector with OAuth 1.0, if you wish to. This build doesn't have any new changes**
+**Note 1:** Please check folder "build\dist_v1" in this repo for accessing the connector with OAuth 1.0, if you wish to. This build doesn't have any new features.
 
-**Note 2: Any enhancements/additions moving forward will be released with OAuth 2.0 support only.**
+**Note 2:** Any enhancements/additions moving forward will be released with OAuth 2.0 support only.
 
+**Note 3:** Recommended to use the pre-built, model ready template file "Upwork Report.pbit" under dist folder to pull and visualize data for your account
 
 The connector pulls following data from Upwork API (Note: The data pulled from the connector is limited)
 
 1.  Teams
-
 2.  Jobs (including sub-teams)
-
 3.  Contracts/Engagements
-
-4.  Freelancers
-
-5.  Billing 
-
-6.  Enterprise Reporting Insights (newly added!)
-7.  Enterprise Custom Fields (newly added!)
+4.  Offers (newly added!)
+5.  Freelancers
+6.  Billing (Transactions)
+7.  Milestones (for active contracts) (newly added!)
+8.  Enterprise Reporting Insights (newly added!)
+9.  Enterprise Custom Fields (newly added!)
 
 Release notes
 =============
+
+**Feb 2020**
+
+1. Offers. You can view your offer details including expected start/end dates, po number, talend cloud, contact person details, byo, w2 etc.
+   
+    New object added -> Offers
+
+2. Milestones. You can now view milestones for your active contracts
+
+    New object added -> Milestones
+
+3. Contracts Extended. Contains feedback related to your contracts.
+
+    New object added -> Contracts Extended
+
+4. Added additional columns in:
+
+    Contracts -> is_direct_hire
+
+    Freelancers -> job_success_score_100, job_success_score, top_rated_status
+    
+
 
 **Dec 2019**
 1. Billing object now has data at Transaction Id level. 
