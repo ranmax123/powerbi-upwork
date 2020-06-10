@@ -354,7 +354,7 @@ queryServiceInsights = "query  serviceInsights ($timePeriod: InsightsTimePeriod,
 queryCompanySelector = "query  {   companySelector {     items {       title       organizationId       photoUrl       organizationRid       organizationType       organizationLegacyType       organizationEnterpriseType       legacyEnterpriseOrganization     }   } }";
 
 
-queryCustomFields = "query customFields ($input: CustomFieldsInput!, $limit: Int, $offset: Int)  {  customFields (input: $input, offset: $offset, limit: $limit){     id    itemId    responseId    typeSnap    labelSnap    displayValueSnap    offerId    rollupAssignmentId    jobPostingId    byoInvitationId    buyItNowId    questionnaireResponsesId    stale    termSectionId }}";
+queryCustomFields = "query customFields ($input: CustomFieldsInput!, $limit: Int, $offset: Int)  {  customFields (input: $input, offset: $offset, limit: $limit){ labelSnap    displayValueSnap rollupAssignmentId  stale}}";
 
 
 queryOffers = "query offers($after: String, $first: Int!) {  organization {    id    clientOffers(pagination: {after: $after, first: $first}) {      totalCount      edges {        cursor        node {          id          title          offerCreatedDateTime          contactPerson {            id            nid            rid  email name          }  freelancer {            id            nid            rid            freelancerProfile{              aggregates{                jobSuccessScore                topRatedStatus              }            }          }           offer {            id createdUsingBYOFlow           offerTerms {              expectedEndDate              expectedStartDate            }            offerFeatures {              purchaseOrder {                orderNumber              }              privateTalentCloud {                name              }              eor            }          }        }      }    }  }}";
@@ -367,10 +367,10 @@ queryMilestones = "query milestones($contractid: ID){  contract(id: $contractid)
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetContractsExtended()
+//         source = Upwork.GetCustomFields()
 //     in
 //         source;
-
+// 
 shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
 Upwork.NavImplType = type function() as table
         meta [
@@ -830,11 +830,11 @@ Upwork.GetCustomFields = () as any =>
 
         #"Merged Queries" = Table.NestedJoin(teams, {"company_id"}, topLevelEnt, {"companyReference"}, "Companies", JoinKind.Inner),
         #"Expanded Companies" = Table.ExpandTableColumn(#"Merged Queries", "Companies", {"companyOrgId"}, {"companyOrgId"}),
-
-        contracts = Upwork.GetContractsPaged(contractUrl),
+        
+        dateFilter = Date.ToText(#date(Date.Year(DateTime.LocalNow())-2, 1, 1), "yyyy-MM-dd"),
+        contracts = Upwork.GetContractsPaged(contractUrl, [created_time_from=dateFilter]),
 
         contractsTransformed = Table.TransformColumnTypes(contracts, {{"buyer_team_id", Int64.Type}}),
-    
          #"Merged Queries2" = Table.NestedJoin(contractsTransformed, {"buyer_team_id"},  #"Expanded Companies", {"team_id"}, "Teams", JoinKind.Inner),
        
          #"Expanded Teams" = Table.ExpandTableColumn(#"Merged Queries2", "Teams", {"companyOrgId"}, {"companyOrgId"}),
@@ -879,7 +879,7 @@ Upwork.GetCustomFields = () as any =>
         #"Filtered Rows" = Table.SelectRows(#"Changed Type", each ([contract_id_toplevel] <> null))
 
     in
-        #"Filtered Rows";
+     #"Filtered Rows";
         
 
 //
@@ -1434,14 +1434,14 @@ Upwork.GetContractsPerPage = (url, parameters) =>
 //
 // Get Contracts using pagination
 //
-Upwork.GetContractsPaged = (url, optional status as text) =>
+Upwork.GetContractsPaged = (url, optional param as record) =>
     
     let
-        statusParam = if status <> null then [status = status] else [],
+        additionalParam = if param = null then [] else param,
         contractsJsonPaginated = List.Generate( () => 
                         [pageResult = null, total_items = 0, nextOffset = 0, counter = 1],
                          each Number.From([total_items]) <> 0 or [counter] <= 1,
-                        each [pageResult = try Upwork.GetContractsPerPage(url, statusParam &
+                        each [pageResult = try Upwork.GetContractsPerPage(url, additionalParam &
                                                        [page=Text.From([nextOffset]) & ";" & Text.From(recordsPerPage)]) 
                                            otherwise null, 
                                 total_items = try pageResult[engagements][lister][total_items] otherwise 0,
@@ -1555,7 +1555,7 @@ Upwork.GetMilestonesImpl = () as any =>
         #"Expanded Companies" = Table.ExpandTableColumn(#"Merged Queries", "Companies", {"companyOrgId"}, {"companyOrgId"}),
 
         //getting milestone data for active contracts
-        contracts = Upwork.GetContractsPaged(contractUrl, "active"),
+        contracts = Upwork.GetContractsPaged(contractUrl, [status="active"]),
 
         contractsTransformed = Table.TransformColumnTypes(contracts, {{"buyer_team_id", Int64.Type}}),
     
