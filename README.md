@@ -22,10 +22,13 @@ The connector pulls following data from Upwork API (Note: The data pulled from t
 6.  Billing (Transactions)
 7.  Milestones (for active contracts) (newly added!)
 8.  Enterprise Reporting Insights (newly added!)
-9.  Enterprise Custom Fields (newly added!)
+9.  Enterprise Custom Fields (newly added!) (fetches only last 3 years contracts CFs)
 
 Release notes
 =============
+**June 2020**
+
+1. Updated Custom Fields query to fetch only last 3 years contracts CFs.
 
 **Feb 2020**
 
