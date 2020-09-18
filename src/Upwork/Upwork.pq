@@ -1522,9 +1522,9 @@ Upwork.GetContractsImpl = () =>
                 {"freelancer_id", Int64.Type}, 
                 {"offer_id", Int64.Type},
                 {"contract_id", Int64.Type},
-                {"accept_date", type datetime},
-                {"start_date", type datetime},
-                {"end_date", type datetime}})
+                {"accept_date", type date},
+                {"start_date", type date},
+                {"end_date", type date}})
     in
         transformedTable;
 
@@ -1708,7 +1708,7 @@ Upwork.GetJobsImpl = (optional status as text) =>
         removeBlankRows = Table.SelectRows(transformedDate, each [job_text_id] <> null),
 
         transformedTable = Table.TransformColumnTypes(removeBlankRows,
-                {{"job_created_date", type datetime},
+                {{"job_created_date", type date},
                 {"team_id", Int64.Type}})
 
     in
