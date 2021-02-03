@@ -45,7 +45,7 @@ hoursSuffixUrl = "/hours";
 
 //Billing query
 billingQuery = "SELECT SUM(amount) WHERE assignment__reference=";
-billingQuery2 = "SELECT reference, date, date_due, assignment__reference, type, subtype, notes, SUM(amount) WHERE date>='$sdate$' and date <='$edate$'";
+billingQuery2 = "SELECT reference, date, date_due, assignment__reference, type, subtype, notes, description, SUM(amount) WHERE date>='$sdate$' and date <='$edate$'";
 totalHoursQuery = "SELECT assignment_ref, worked_on, week_worked_on, SUM(hours) where worked_on >= '$sdate$' and worked_on <= '$edate$'";
 
 //Upwork public Urls
@@ -265,6 +265,7 @@ billingOutputFinalColumns = {
     "type",
     "accounting_subtype",
     "notes",
+    "description",
     "amount_spent"
 };
 
@@ -1990,8 +1991,11 @@ Upwork.GetBillingImpl = () =>
         col7 = Table.AddColumn(col6, "notes",
                                             each if Value.Is([c], type list) then [c]{6} 
                                             else [c]), 
+        col8 = Table.AddColumn(col7, "description",
+                                            each if Value.Is([c], type list) then [c]{7} 
+                                            else [c]), 
         //last column is amount_spent
-        colN = Table.AddColumn(col7, "amount", each if Value.Is([c], type list) then List.Last([c]) else [c]),
+        colN = Table.AddColumn(col8, "amount", each if Value.Is([c], type list) then List.Last([c]) else [c]),
 
         expandedReference = Table.ExpandRecordColumn(colN, "reference", {"v"}, {"txn_id"}),
         
@@ -2005,7 +2009,9 @@ Upwork.GetBillingImpl = () =>
 
         expandedNotes = Table.ExpandRecordColumn(expandedSubType, "notes", {"v"}, {"notes"}),
 
-        expandedAmount = Table.ExpandRecordColumn(expandedNotes, "amount", {"v"}, {"amount_spent"}),
+        expandedDescription = Table.ExpandRecordColumn(expandedNotes, "description", {"v"}, {"description"}),
+
+        expandedAmount = Table.ExpandRecordColumn(expandedDescription, "amount", {"v"}, {"amount_spent"}),
 
         billingTable = Table.SelectColumns(expandedAmount, billingOutputFinalColumns),
 
