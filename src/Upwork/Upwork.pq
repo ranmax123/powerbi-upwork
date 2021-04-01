@@ -1,6 +1,6 @@
 ﻿
 // This file contains Upwork connector logic
-[version = "3.1.3"]
+[version = "3.1.4"]
 section Upwork;
 
 windowWidth = 1024;
@@ -86,7 +86,8 @@ teamMasterColumns = {"auth_user", "teams", "server_time"};
 contractColumns = {
     "buyer_team__reference",
      "reference",
-    "engagement_title",
+    "parent_reference",
+  "engagement_title",
     "engagement_job_type",
     "status",
     "cj_job_application_uid",
@@ -110,6 +111,7 @@ contractColumns = {
  contractOutputColumns = {
     "buyer_team_id",
     "contract_id",
+     "parent_contract_id",
     "contract_title",
     "contract_type",
     "contract_status",
@@ -134,6 +136,7 @@ contractColumns = {
 contractOutputFinalColumns = {
     "buyer_team_id",
     "contract_id",
+    "parent_contract_id",
     "contract_title",
     "contract_type",
     "contract_status",
@@ -371,10 +374,10 @@ queryMilestones = "query milestones($contractid: ID){  contract(id: $contractid)
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetBilling()
+//         source = Upwork.GetContracts()
 //     in
 //         source;
-
+// 
 shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
 Upwork.NavImplType = type function() as table
         meta [
@@ -1524,6 +1527,7 @@ Upwork.GetContractsImpl = () =>
                 {"freelancer_id", Int64.Type}, 
                 {"offer_id", Int64.Type},
                 {"contract_id", Int64.Type},
+                {"parent_contract_id", Int64.Type},
                 {"accept_date", type date},
                 {"start_date", type date},
                 {"end_date", type date}})
