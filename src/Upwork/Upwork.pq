@@ -1,6 +1,6 @@
 ﻿
 // This file contains Upwork connector logic
-[version = "3.1.4"]
+[version = "3.2.4"]
 section Upwork;
 
 windowWidth = 1024;
@@ -2134,7 +2134,8 @@ Upwork.Request =
         actualUrl = if isPost or Text.Length(queryString) = 0 then relativeUrl else relativeUrl & "?" & queryString,
         relativePath = [RelativePath = actualUrl],
         manualStatusHandling = if isManualStatusHandling = true then [ManualStatusHandling={403}] else [],
-        result = Web.Contents(baseUrl, manualStatusHandling & relativePath & options)
+        result = Function.InvokeAfter(() => Web.Contents(baseUrl, manualStatusHandling & relativePath & options),
+                                         #duration(0,0,0, delayinSecGlobalParam))
     in
         result;
 
@@ -2155,13 +2156,28 @@ Upwork.GraphQLRequest =
         options = [Headers = [#"Content-type" = "application/json"] & headers & headerOrgId, 
                         Content = queryString] ,
      
-        manualStatusHandling = if ManualErrorHandling = null then [] else ManualErrorHandling,
+        //manualStatusHandling = if ManualErrorHandling = null then [] else ManualErrorHandling,
         delayInSec = if delayInSecondsLocalParam = null then delayinSecGlobalParam else delayInSecondsLocalParam,
-
-        result = Function.InvokeAfter(()=>Web.Contents(graphQLUrl, manualStatusHandling & options),
-                    #duration(0,0,0, delayInSec))
+       
+        waitForResult = Function.InvokeAfter(() => Value.WaitFor(
+                                (iteration) =>
+                                    let
+                                        result = Web.Contents(graphQLUrl, [ManualStatusHandling={500}] & options), 
+                                        buffered = Binary.Buffer(result),
+                                        status = Value.Metadata(result)[Response.Status],
+                                        actualResult = if status = 500 then null else buffered
+                                    in
+                                        actualResult,
+                                (iteration) => #duration(0, 0, 0, Number.Power(2, iteration)),5), 
+                                
+                        #duration(0,0,0, delayInSec))
         in
-            result;
+            waitForResult;
+
+//         result = Function.InvokeAfter(()=>Web.Contents(graphQLUrl, manualStatusHandling & options),
+//                     #duration(0,0,0, delayInSec))
+//         in
+//             result;
 
 /* Authentication functions provided by SDK */
 Upwork.StartLogin = (resourceUrl, state, display) =>
@@ -2277,3 +2293,12 @@ Upwork.ToNavigationTable =
     in
         navigationTable;
 
+Value.WaitFor = (producer as function, interval as function, optional count as number) as any =>
+    let
+        list = List.Generate(
+            () => {0, null},
+            (state) => state{0} <> null and (count = null or state{0} < count),
+            (state) => if state{1} <> null then {null, state{1}} else {1 + state{0}, Function.InvokeAfter(() => producer(state{0}), interval(state{0}))},
+            (state) => state{1})
+    in
+        List.Last(list);
