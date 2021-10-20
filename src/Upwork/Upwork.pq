@@ -823,13 +823,25 @@ Upwork.GetEntAllServicesSummary = (timePeriod) as any =>
              #"Changed Type" ;
 
 
+[DataSource.Kind="Upwork"]
+shared Upwork.GetCustomFields = Value.ReplaceType(Upwork.GetCustomFieldsImpl, Upwork.GetCustomFieldsImplType);
+
+Upwork.GetCustomFieldsImplType = type function( optional company_ref as ( type text meta[
+        Documentation.FieldCaption = Extension.LoadString("Upwork.GetCustomFields.CompanyParam.Name"),
+        Documentation.FieldDescription = Extension.LoadString("Upwork.GetCustomFields.CompanyParam.LongDescription")]
+        ))  as table
+        meta [
+            Documentation.Name = Extension.LoadString("Upwork.GetCustomFields.Name"),
+            Documentation.LongDescription = Extension.LoadString("Upwork.GetCustomFields.LongDescription")
+        ];
+
 //
 // Get Custom Fields
 // Tested for:
 // Enterprise - SUCCESS
 // Non Enterprise -  SUCCESS
 //
-Upwork.GetCustomFields = (optional company_ref) as any =>
+Upwork.GetCustomFieldsImpl = (optional company_ref) as any =>
 
     let //get mapping between teams_id -> company ref -> company Org Id
         teams = Upwork.GetTeams(),

@@ -153,6 +153,18 @@
   <data name="Upwork.GetContractsExtended.Name" xml:space="preserve">
     <value>Upwork.GetContractsExtended</value>
   </data>
+  <data name="Upwork.GetCustomFields.CompanyParam.LongDescription" xml:space="preserve">
+    <value>An optional company ref param to speed up query execution</value>
+  </data>
+  <data name="Upwork.GetCustomFields.CompanyParam.Name" xml:space="preserve">
+    <value>Company Ref</value>
+  </data>
+  <data name="Upwork.GetCustomFields.LongDescription" xml:space="preserve">
+    <value>Get Custom Fields</value>
+  </data>
+  <data name="Upwork.GetCustomFields.Name" xml:space="preserve">
+    <value>Upwork.GetCustomFields</value>
+  </data>
   <data name="Upwork.GetFreelancers.LongDescription" xml:space="preserve">
     <value>Get Freelancers information from Upwork</value>
   </data>
