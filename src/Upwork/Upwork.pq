@@ -1,6 +1,6 @@
 ﻿
 // This file contains Upwork connector logic
-[version = "3.2.4"]
+[version = "3.2.5"]
 section Upwork;
 
 windowWidth = 1024;
@@ -14,7 +14,7 @@ recordsPerPage = Json.Document(Extension.Contents("client_application.json"))[Re
 //TEST
 GQLLimit = 100;
 contractsPerCall = recordsPerPage;
-delayinSecGlobalParam = 1;
+delayinSecGlobalParam = 5;
 
 //Upwork base Url
 baseUrl = "https://www.upwork.com";
@@ -374,10 +374,10 @@ queryMilestones = "query milestones($contractid: ID){  contract(id: $contractid)
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetContracts()
+//         source = Upwork.GetCustomFields(8715048)
 //     in
 //         source;
-// 
+
 shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
 Upwork.NavImplType = type function() as table
         meta [
@@ -829,22 +829,25 @@ Upwork.GetEntAllServicesSummary = (timePeriod) as any =>
 // Enterprise - SUCCESS
 // Non Enterprise -  SUCCESS
 //
-Upwork.GetCustomFields = () as any =>
+Upwork.GetCustomFields = (optional company_ref) as any =>
 
     let //get mapping between teams_id -> company ref -> company Org Id
         teams = Upwork.GetTeams(),
+
+        //filter for the company_ref
+        teamsFiltered = if company_ref = null then teams else Table.SelectRows(teams, each [company_id] = company_ref),
         topLevelEnt = Upwork.GetTopLevelEnterprises(),
 
-        #"Merged Queries" = Table.NestedJoin(teams, {"company_id"}, topLevelEnt, {"companyReference"}, "Companies", JoinKind.Inner),
+        #"Merged Queries" = Table.NestedJoin(teamsFiltered, {"company_id"}, topLevelEnt, {"companyReference"}, "Companies", JoinKind.Inner),
         #"Expanded Companies" = Table.ExpandTableColumn(#"Merged Queries", "Companies", {"companyOrgId"}, {"companyOrgId"}),
         
         dateFilter = Date.ToText(#date(Date.Year(DateTime.LocalNow())-2, 1, 1), "yyyy-MM-dd"),
         contracts = Upwork.GetContractsPaged(contractUrl, [created_time_from=dateFilter]),
 
         contractsTransformed = Table.TransformColumnTypes(contracts, {{"buyer_team_id", Int64.Type}}),
-         #"Merged Queries2" = Table.NestedJoin(contractsTransformed, {"buyer_team_id"},  #"Expanded Companies", {"team_id"}, "Teams", JoinKind.Inner),
+        #"Merged Queries2" = Table.NestedJoin(contractsTransformed, {"buyer_team_id"},  #"Expanded Companies", {"team_id"}, "Teams", JoinKind.Inner),
        
-         #"Expanded Teams" = Table.ExpandTableColumn(#"Merged Queries2", "Teams", {"companyOrgId"}, {"companyOrgId"}),
+        #"Expanded Teams" = Table.ExpandTableColumn(#"Merged Queries2", "Teams", {"companyOrgId"}, {"companyOrgId"}),
 
         #"Added Index" = Table.AddIndexColumn(#"Expanded Teams", "Index", 1, 1),
         #"Removed Other Columns" = Table.SelectColumns(#"Added Index",{"Index", "contract_id", "companyOrgId"}),
@@ -2162,13 +2165,15 @@ Upwork.GraphQLRequest =
         waitForResult = Function.InvokeAfter(() => Value.WaitFor(
                                 (iteration) =>
                                     let
-                                        result = Web.Contents(graphQLUrl, [ManualStatusHandling={500}] & options), 
+                                        result = Web.Contents(graphQLUrl, [ManualStatusHandling={500}] & options),
+                                        json = Json.Document(result),
                                         buffered = Binary.Buffer(result),
                                         status = Value.Metadata(result)[Response.Status],
-                                        actualResult = if status = 500 then null else buffered
+                                        actualResult = if status = 500 or (Record.HasFields(json, "errors") and 
+                                            result[json]{0}[extensions][code] = 500) then null else buffered
                                     in
                                         actualResult,
-                                (iteration) => #duration(0, 0, 0, Number.Power(2, iteration)),5), 
+                                (iteration) => #duration(0, 0, 0, Number.Power(2, iteration)), 5), 
                                 
                         #duration(0,0,0, delayInSec))
         in
