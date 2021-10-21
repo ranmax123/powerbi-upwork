@@ -8,3 +8,4 @@
 *.suo
 /src/.vs/config/applicationhost.config
 /src/Upwork/obj/Debug
+/src/Upwork/Diagnostics.pqm

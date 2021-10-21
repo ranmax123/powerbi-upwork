@@ -1,6 +1,6 @@
 {
-  "ClientId": "YOUR_CLIENT_ID",
-  "ClientSecret": "YOUR_CLIENT_SECRET",
+  "ClientId": "3f5b763babc6f8063b7f85ea97c52070",
+  "ClientSecret": "ffae123ce6ca5d37",
   "CallbackUrl": "https://oauth.powerbi.com/views/oauthredirect.html",
-  "RecordsPerPage": 100
+  "RecordsPerPage": 200
 }
