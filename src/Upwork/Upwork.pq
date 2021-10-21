@@ -374,10 +374,10 @@ queryMilestones = "query milestones($contractid: ID){  contract(id: $contractid)
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetCustomFields(8715048)
+//         source = Upwork.GetContractsExtended()
 //     in
 //         source;
-
+// 
 shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
 Upwork.NavImplType = type function() as table
         meta [
@@ -2182,7 +2182,7 @@ Upwork.GraphQLRequest =
                                         buffered = Binary.Buffer(result),
                                         status = Value.Metadata(result)[Response.Status],
                                         actualResult = if status = 500 or (Record.HasFields(json, "errors") and 
-                                            result[json]{0}[extensions][code] = 500) then null else buffered
+                                            json[errors]{0}[extensions][code] = 500) then null else buffered
                                     in
                                         actualResult,
                                 (iteration) => #duration(0, 0, 0, Number.Power(2, iteration)), 5), 
