@@ -374,10 +374,10 @@ queryMilestones = "query milestones($contractid: ID){  contract(id: $contractid)
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetCustomFields()
+//         source = Upwork.GetContractsExtended()
 //     in
 //         source;
-
+// 
 shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
 Upwork.NavImplType = type function() as table
         meta [
@@ -854,17 +854,14 @@ Upwork.GetCustomFieldsImpl = (optional company_ref) as any =>
         #"Expanded Companies" = Table.ExpandTableColumn(#"Merged Queries", "Companies", {"companyOrgId"}, {"companyOrgId"}),
         
         dateFilter = Date.ToText(#date(Date.Year(DateTime.LocalNow())-2, 1, 1), "yyyy-MM-dd"),
-        
-        //get contracts per team to speed up CF pulls
-        teamsContracts = Table.AddColumn(#"Expanded Companies", "source", 
-                            each Upwork.GetContractsPaged(contractUrl, [created_time_from=dateFilter, 
-                                                                        buyer_team__reference = Text.From([team_id])])),
+        contracts = Upwork.GetContractsPaged(contractUrl, [created_time_from=dateFilter]),
 
-        #"Expanded teams contracts" = Table.ExpandTableColumn(teamsContracts, "source", 
-                                                            contractOutputColumns, 
-                                                            contractOutputColumns),
+        contractsTransformed = Table.TransformColumnTypes(contracts, {{"buyer_team_id", Int64.Type}}),
+        #"Merged Queries2" = Table.NestedJoin(contractsTransformed, {"buyer_team_id"},  #"Expanded Companies", {"team_id"}, "Teams", JoinKind.Inner),
+       
+        #"Expanded Teams" = Table.ExpandTableColumn(#"Merged Queries2", "Teams", {"companyOrgId"}, {"companyOrgId"}),
 
-        #"Added Index" = Table.AddIndexColumn( #"Expanded teams contracts" , "Index", 1, 1),
+        #"Added Index" = Table.AddIndexColumn(#"Expanded Teams", "Index", 1, 1),
         #"Removed Other Columns" = Table.SelectColumns(#"Added Index",{"Index", "contract_id", "companyOrgId"}),
         
         total_rows = Table.RowCount(#"Removed Other Columns"),
@@ -904,7 +901,7 @@ Upwork.GetCustomFieldsImpl = (optional company_ref) as any =>
         #"Filtered Rows" = Table.SelectRows(#"Changed Type", each ([contract_id_toplevel] <> null))
 
     in
-      #"Filtered Rows";
+     #"Filtered Rows";
         
 
 //
