@@ -129,6 +129,12 @@
   <data name="DataSourceLabel" xml:space="preserve">
     <value>Upwork</value>
   </data>
+  <data name="Upwork.CompanyParam.LongDescription" xml:space="preserve">
+    <value>An optional company ref param to speed up query execution</value>
+  </data>
+  <data name="Upwork.CompanyParam.Name" xml:space="preserve">
+    <value>Company Ref</value>
+  </data>
   <data name="Upwork.Contents.LongDescription" xml:space="preserve">
     <value>Connect to Upwork</value>
   </data>
@@ -152,12 +158,6 @@
   </data>
   <data name="Upwork.GetContractsExtended.Name" xml:space="preserve">
     <value>Upwork.GetContractsExtended</value>
-  </data>
-  <data name="Upwork.GetCustomFields.CompanyParam.LongDescription" xml:space="preserve">
-    <value>An optional company ref param to speed up query execution</value>
-  </data>
-  <data name="Upwork.GetCustomFields.CompanyParam.Name" xml:space="preserve">
-    <value>Company Ref</value>
   </data>
   <data name="Upwork.GetCustomFields.LongDescription" xml:space="preserve">
     <value>Get Custom Fields</value>
