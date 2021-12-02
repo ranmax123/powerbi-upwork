@@ -1,6 +1,6 @@
 ﻿
 // This file contains Upwork connector logic
-[version = "3.2.6"]
+[version = "3.2.7"]
 section Upwork;
 
 windowWidth = 1024;
@@ -1209,7 +1209,10 @@ Upwork.GetTeamsImpl = () =>
 [DataSource.Kind="Upwork"]
 shared Upwork.GetOffers = Value.ReplaceType(Upwork.GetOffersImpl, Upwork.GetOffersImplType);
 
-Upwork.GetOffersImplType = type function() as table
+Upwork.GetOffersImplType =type function(optional company_ref as ( type text meta[
+        Documentation.FieldCaption = Extension.LoadString("Upwork.CompanyParam.Name"),
+        Documentation.FieldDescription = Extension.LoadString("Upwork.CompanyParam.LongDescription")]
+        )) as table
         meta [
             Documentation.Name = Extension.LoadString("Upwork.GetOffers.Name"),
             Documentation.LongDescription = Extension.LoadString("Upwork.GetOffers.LongDescription")
@@ -1221,12 +1224,13 @@ Upwork.GetOffersImplType = type function() as table
 // Enterprise - SUCCESS
 // Non Enterprise - SUCCESS
 //
-Upwork.GetOffersImpl = () as any =>
+Upwork.GetOffersImpl = (optional company_ref) as any =>
 
     let
         table = Upwork.GetTopLevelEnterprises(),
-        
-        data = Table.AddColumn(table, "source", 
+        filteredOrg = if company_ref = null then table else Table.SelectRows(table, each [companyReference] = company_ref),
+     
+        data = Table.AddColumn(filteredOrg, "source", 
                             each Upwork.GetOffersPagedData(
                                                             [companyOrgId],//orgid
                                                               1, //current page to fetch
@@ -1278,7 +1282,9 @@ Upwork.GetOffersImpl = () as any =>
 
         #"Filtered Rows" = Table.SelectRows(#"Reordered Columns" , each ([offer_id] <> null)),
 
-        #"Changed Type" = Table.TransformColumnTypes(#"Filtered Rows",
+        DistinctRows = Table.Distinct(#"Filtered Rows"),
+
+        #"Changed Type" = Table.TransformColumnTypes(DistinctRows,
                             {{"offer_created_date", type datetimezone}, 
                             {"expected_end_date", type datetimezone}, 
                             {"expected_start_date", type datetimezone}}),
@@ -1993,16 +1999,23 @@ Upwork.GetBillingByCompany = (companyRef, querydate) =>
 [DataSource.Kind="Upwork"]
 shared Upwork.GetBilling = Value.ReplaceType(Upwork.GetBillingImpl, Upwork.GetBillingImplType);
 
-Upwork.GetBillingImplType = type function() as table
+Upwork.GetBillingImplType = type function(optional company_ref as ( type text meta[
+        Documentation.FieldCaption = Extension.LoadString("Upwork.CompanyParam.Name"),
+        Documentation.FieldDescription = Extension.LoadString("Upwork.CompanyParam.LongDescription")]
+        )) as table
         meta [
             Documentation.Name = Extension.LoadString("Upwork.GetBilling.Name"),
             Documentation.LongDescription = Extension.LoadString("Upwork.GetBilling.LongDescription")
         ];
 
-Upwork.GetBillingImpl = () =>
+Upwork.GetBillingImpl = (optional company_ref) =>
     let
+        //get teams first to filter out contracts for that team
         teams = Upwork.GetTeams(),
-        withCompaniesRef = Table.SelectColumns(teams, "company_id"),
+
+        teamsFiltered = if company_ref = null then teams else Table.SelectRows(teams, each [company_id] = company_ref),
+
+        withCompaniesRef = Table.SelectColumns(teamsFiltered, "company_id"),
         withUniqueCompaniesRef = Table.Distinct(withCompaniesRef),
 
         teamsWithMonths = Table.AddColumn(withUniqueCompaniesRef, "billing_month", 
@@ -2102,16 +2115,23 @@ Upwork.GetHoursWorkedByTeam = (companyid, querydate) =>
 [DataSource.Kind="Upwork"]
 shared Upwork.GetTotalHoursWorked = Value.ReplaceType(Upwork.GetTotalHoursWorkedImpl, Upwork.GetTotalHoursWorkedImplType);
 
-Upwork.GetTotalHoursWorkedImplType = type function() as table
+Upwork.GetTotalHoursWorkedImplType =  type function(optional company_ref as ( type text meta[
+        Documentation.FieldCaption = Extension.LoadString("Upwork.CompanyParam.Name"),
+        Documentation.FieldDescription = Extension.LoadString("Upwork.CompanyParam.LongDescription")]
+        )) as table
         meta [
             Documentation.Name = Extension.LoadString("Upwork.GetTotalHoursWorked.Name"),
             Documentation.LongDescription = Extension.LoadString("Upwork.GetTotalHoursWorked.LongDescription")
         ];
 
-Upwork.GetTotalHoursWorkedImpl = () =>
+Upwork.GetTotalHoursWorkedImpl = (optional company_ref) =>
     let
+         //get teams first to filter out contracts for that team
         teams = Upwork.GetTeams(),
-        teamsWithCompanyUID = Table.SelectColumns(teams, "company_uid"),
+
+        teamsFiltered = if company_ref = null then teams else Table.SelectRows(teams, each [company_id] = company_ref),
+
+        teamsWithCompanyUID = Table.SelectColumns(teamsFiltered, "company_uid"),
         uniqueCompanyUIDs = Table.Distinct(teamsWithCompanyUID),
 
         teamsWithMonths = Table.AddColumn(uniqueCompanyUIDs, "worked_on_month", 
@@ -2218,8 +2238,17 @@ Upwork.GraphQLRequest =
                                         json = Json.Document(result),
                                         buffered = Binary.Buffer(result),
                                         status = Value.Metadata(result)[Response.Status],
-                                        actualResult = if status = 500 or (Record.HasFields(json, "errors") and 
-                                            json[errors]{0}[extensions][code] = 500) then null else buffered
+                                        actualResult = if status = 500 or 
+                                                         (Record.HasFields(json, "errors") and 
+                                                          (
+                                                          (Record.HasFields(json[errors]{0}, "extensions")
+                                                           and json[errors]{0}[extensions][code] = 500)
+                                                           or 
+                                                           json[errors]{0}[message] = "GQL execution timeout after PT30S"
+                                                           )
+                                                          )
+                                                        then null 
+                                                        else buffered
                                     in
                                         actualResult,
                                 (iteration) => #duration(0, 0, 0, Number.Power(2, iteration)), 5), 
