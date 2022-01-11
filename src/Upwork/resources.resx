@@ -213,6 +213,12 @@
   <data name="Upwork.GetTotalHoursWorked.Name" xml:space="preserve">
     <value>Upwork.GetTotalHoursWorked</value>
   </data>
+  <data name="Upwork.TeamParam.LongDescription" xml:space="preserve">
+    <value>For passing multiple teams separate them by comma</value>
+  </data>
+  <data name="Upwork.TeamParam.Name" xml:space="preserve">
+    <value>An optional team ref param to speed up query execution</value>
+  </data>
   <data name="YesString" xml:space="preserve">
     <value>Yes</value>
   </data>

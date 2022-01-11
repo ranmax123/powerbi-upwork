@@ -1,6 +1,6 @@
 ﻿
 // This file contains Upwork connector logic
-[version = "3.2.7"]
+[version = "3.2.8"]
 section Upwork;
 
 windowWidth = 1024;
@@ -374,7 +374,7 @@ queryMilestones = "query milestones($contractid: ID){  contract(id: $contractid)
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetCustomFields(8715048)
+//         source = Upwork.GetContracts(null, "5457585")
 //     in
 //         source;
 
@@ -829,6 +829,10 @@ shared Upwork.GetCustomFields = Value.ReplaceType(Upwork.GetCustomFieldsImpl, Up
 Upwork.GetCustomFieldsImplType = type function( optional company_ref as ( type text meta[
         Documentation.FieldCaption = Extension.LoadString("Upwork.CompanyParam.Name"),
         Documentation.FieldDescription = Extension.LoadString("Upwork.CompanyParam.LongDescription")]
+        ),
+        optional team_refs as ( type text meta[
+        Documentation.FieldCaption = Extension.LoadString("Upwork.TeamParam.Name"),
+        Documentation.FieldDescription = Extension.LoadString("Upwork.TeamParam.LongDescription")]
         ))  as table
         meta [
             Documentation.Name = Extension.LoadString("Upwork.GetCustomFields.Name"),
@@ -841,16 +845,14 @@ Upwork.GetCustomFieldsImplType = type function( optional company_ref as ( type t
 // Enterprise - SUCCESS
 // Non Enterprise -  SUCCESS
 //
-Upwork.GetCustomFieldsImpl = (optional company_ref) as any =>
+Upwork.GetCustomFieldsImpl = (optional company_ref, optional team_refs) =>
+    let
+        //get teams first to filter out contracts for that team
+        teams = Upwork.GetTeams(company_ref, team_refs),
 
-    let //get mapping between teams_id -> company ref -> company Org Id
-        teams = Upwork.GetTeams(),
-
-        //filter for the company_ref
-        teamsFiltered = if company_ref = null then teams else Table.SelectRows(teams, each [company_id] = company_ref),
         topLevelEnt = Upwork.GetTopLevelEnterprises(),
 
-        #"Merged Queries" = Table.NestedJoin(teamsFiltered, {"company_id"}, topLevelEnt, {"companyReference"}, "Companies", JoinKind.Inner),
+        #"Merged Queries" = Table.NestedJoin(teams, {"company_id"}, topLevelEnt, {"companyReference"}, "Companies", JoinKind.Inner),
         #"Expanded Companies" = Table.ExpandTableColumn(#"Merged Queries", "Companies", {"companyOrgId"}, {"companyOrgId"}),
         
         dateFilter = Date.ToText(#date(Date.Year(DateTime.LocalNow())-2, 1, 1), "yyyy-MM-dd"),
@@ -1171,14 +1173,20 @@ Upwork.GetCustomFieldsPagedData = (orgId, pageNumber, numPagestoFetch, offset, i
 [DataSource.Kind="Upwork"]
 shared Upwork.GetTeams = Value.ReplaceType(Upwork.GetTeamsImpl, Upwork.GetTeamsImplType);
 
-Upwork.GetTeamsImplType = type function() as table
+Upwork.GetTeamsImplType = type function(optional company_ref as ( type text meta[
+        Documentation.FieldCaption = Extension.LoadString("Upwork.CompanyParam.Name"),
+        Documentation.FieldDescription = Extension.LoadString("Upwork.CompanyParam.LongDescription")]
+        ), optional team_refs as (type list meta[
+         Documentation.FieldCaption = Extension.LoadString("Upwork.TeamParam.Name"),
+        Documentation.FieldDescription = Extension.LoadString("Upwork.TeamParam.LongDescription")
+        ])) as table
         meta [
             Documentation.Name = Extension.LoadString("Upwork.GetTeams.Name"),
             Documentation.LongDescription = Extension.LoadString("Upwork.GetTeams.LongDescription")
         ];
 
 
-Upwork.GetTeamsImpl = () =>
+Upwork.GetTeamsImpl = (optional company_ref, optional team_refs) =>
     let
         url = teamUrl,
         parameters = [],
@@ -1193,7 +1201,15 @@ Upwork.GetTeamsImpl = () =>
         
         teamsTable = Table.SelectColumns(teams, teamOutputFinalColumns),
 
-        transformedDate = Table.TransformColumns(teamsTable, 
+        //filter
+        teamRefasList = if team_refs = null then {} else Text.Split(team_refs, ","),
+
+        teamsFiltered = Table.SelectRows(teamsTable, each [company_id] = company_ref or List.Contains(teamRefasList, [team_id])),
+        
+        teamsFiltered2 = Table.SelectRows(teamsFiltered, each [company_id] <> null and [team_id] <> null),
+
+        //end filter
+        transformedDate = Table.TransformColumns(teamsFiltered2, 
                                                     {{"refreshed_date", each Upwork.FromTimestampToDate(_)}}),
 
         transformedTable = Table.TransformColumnTypes(transformedDate,
@@ -1508,16 +1524,14 @@ Upwork.GetContractsPaged = (url, optional param as record) =>
         allEngagementsSelectedColumns;
 
 // Get contracts filtered by team
-Upwork.GetContractsFilteredByTeam = (optional company_ref) =>
+Upwork.GetContractsFilteredByTeam = (optional company_ref, optional team_refs) =>
 
     let
         //get teams first to filter out contracts for that team
-        teams = Upwork.GetTeams(),
+        teams = Upwork.GetTeams(company_ref, team_refs),
 
-        teamsFiltered = if company_ref = null then teams else Table.SelectRows(teams, each [company_id] = company_ref),
-        
         //get contracts per team to speed up 
-        teamsContracts = Table.AddColumn(teamsFiltered, "source", 
+        teamsContracts = Table.AddColumn(teams, "source", 
                             each Upwork.GetContractsPaged(contractUrl, [buyer_team__reference = Text.From([team_id])])),
 
         allEngagementsSelectedColumns = Table.ExpandTableColumn(teamsContracts, "source", 
@@ -1544,16 +1558,19 @@ shared Upwork.GetContracts = Value.ReplaceType(Upwork.GetContractsImpl, Upwork.G
 Upwork.GetContractsImplType = type function(optional company_ref as ( type text meta[
         Documentation.FieldCaption = Extension.LoadString("Upwork.CompanyParam.Name"),
         Documentation.FieldDescription = Extension.LoadString("Upwork.CompanyParam.LongDescription")]
+        ), optional team_refs as ( type text meta[
+        Documentation.FieldCaption = Extension.LoadString("Upwork.TeamParam.Name"),
+        Documentation.FieldDescription = Extension.LoadString("Upwork.TeamParam.LongDescription")]
         )) as table
         meta [
             Documentation.Name = Extension.LoadString("Upwork.GetContracts.Name"),
             Documentation.LongDescription = Extension.LoadString("Upwork.GetContracts.LongDescription")
         ];
 
-Upwork.GetContractsImpl = (optional company_ref) =>
+Upwork.GetContractsImpl = (optional company_ref, optional team_refs) =>
     let
         //get teams first to filter out contracts for that team
-        contracts = Upwork.GetContractsFilteredByTeam(company_ref),
+        contracts = Upwork.GetContractsFilteredByTeam(company_ref, team_refs),
 
         //FEEDBACK RECORD
         feedbackRecord = Table.TransformColumns(contracts, {{"feedback", each if _ = "" then [] else _}}),
@@ -1879,16 +1896,20 @@ shared Upwork.GetFreelancers = Value.ReplaceType(Upwork.GetFreelancersImpl, Upwo
 Upwork.GetFreelancersImplType = type function(optional company_ref as ( type text meta[
         Documentation.FieldCaption = Extension.LoadString("Upwork.CompanyParam.Name"),
         Documentation.FieldDescription = Extension.LoadString("Upwork.CompanyParam.LongDescription")]
+        ),
+        optional team_refs as ( type text meta[
+        Documentation.FieldCaption = Extension.LoadString("Upwork.TeamParam.Name"),
+        Documentation.FieldDescription = Extension.LoadString("Upwork.TeamParam.LongDescription")]
         )) as table
         meta [
             Documentation.Name = Extension.LoadString("Upwork.GetFreelancers.Name"),
             Documentation.LongDescription = Extension.LoadString("Upwork.GetFreelancers.LongDescription")
         ];
 
-Upwork.GetFreelancersImpl = (optional company_ref) =>
+Upwork.GetFreelancersImpl = (optional company_ref, optional team_refs) =>
     let
         //get teams first to filter out contracts for that team
-        contracts = Upwork.GetContractsFilteredByTeam(company_ref),
+        contracts = Upwork.GetContractsFilteredByTeam(company_ref, team_refs),
         
         freelancerSelectedColumns = Table.SelectColumns(contracts, {"freelancer_text_id"}),
         uniqueFreelancers = Table.Distinct(freelancerSelectedColumns),
@@ -2002,20 +2023,22 @@ shared Upwork.GetBilling = Value.ReplaceType(Upwork.GetBillingImpl, Upwork.GetBi
 Upwork.GetBillingImplType = type function(optional company_ref as ( type text meta[
         Documentation.FieldCaption = Extension.LoadString("Upwork.CompanyParam.Name"),
         Documentation.FieldDescription = Extension.LoadString("Upwork.CompanyParam.LongDescription")]
+        ),
+        optional team_refs as ( type text meta[
+        Documentation.FieldCaption = Extension.LoadString("Upwork.TeamParam.Name"),
+        Documentation.FieldDescription = Extension.LoadString("Upwork.TeamParam.LongDescription")]
         )) as table
         meta [
             Documentation.Name = Extension.LoadString("Upwork.GetBilling.Name"),
             Documentation.LongDescription = Extension.LoadString("Upwork.GetBilling.LongDescription")
         ];
 
-Upwork.GetBillingImpl = (optional company_ref) =>
+Upwork.GetBillingImpl = (optional company_ref, optional team_refs) =>
     let
         //get teams first to filter out contracts for that team
-        teams = Upwork.GetTeams(),
+        teams = Upwork.GetTeams(company_ref, team_refs),
 
-        teamsFiltered = if company_ref = null then teams else Table.SelectRows(teams, each [company_id] = company_ref),
-
-        withCompaniesRef = Table.SelectColumns(teamsFiltered, "company_id"),
+        withCompaniesRef = Table.SelectColumns(teams, "company_id"),
         withUniqueCompaniesRef = Table.Distinct(withCompaniesRef),
 
         teamsWithMonths = Table.AddColumn(withUniqueCompaniesRef, "billing_month", 
@@ -2118,20 +2141,23 @@ shared Upwork.GetTotalHoursWorked = Value.ReplaceType(Upwork.GetTotalHoursWorked
 Upwork.GetTotalHoursWorkedImplType =  type function(optional company_ref as ( type text meta[
         Documentation.FieldCaption = Extension.LoadString("Upwork.CompanyParam.Name"),
         Documentation.FieldDescription = Extension.LoadString("Upwork.CompanyParam.LongDescription")]
-        )) as table
+        ),
+        optional team_refs as ( type text meta[
+        Documentation.FieldCaption = Extension.LoadString("Upwork.TeamParam.Name"),
+        Documentation.FieldDescription = Extension.LoadString("Upwork.TeamParam.LongDescription")]
+        )
+        ) as table
         meta [
             Documentation.Name = Extension.LoadString("Upwork.GetTotalHoursWorked.Name"),
             Documentation.LongDescription = Extension.LoadString("Upwork.GetTotalHoursWorked.LongDescription")
         ];
 
-Upwork.GetTotalHoursWorkedImpl = (optional company_ref) =>
+Upwork.GetTotalHoursWorkedImpl = (optional company_ref, optional team_refs) =>
     let
-         //get teams first to filter out contracts for that team
-        teams = Upwork.GetTeams(),
+        //get teams first to filter out contracts for that team
+        teams = Upwork.GetTeams(company_ref, team_refs),
 
-        teamsFiltered = if company_ref = null then teams else Table.SelectRows(teams, each [company_id] = company_ref),
-
-        teamsWithCompanyUID = Table.SelectColumns(teamsFiltered, "company_uid"),
+        teamsWithCompanyUID = Table.SelectColumns(teams, "company_uid"),
         uniqueCompanyUIDs = Table.Distinct(teamsWithCompanyUID),
 
         teamsWithMonths = Table.AddColumn(uniqueCompanyUIDs, "worked_on_month", 
