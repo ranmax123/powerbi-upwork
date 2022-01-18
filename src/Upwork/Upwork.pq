@@ -374,10 +374,10 @@ queryMilestones = "query milestones($contractid: ID){  contract(id: $contractid)
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetContracts(null, "5457585")
+//         source = Upwork.GetContracts(null, "4720095")
 //     in
 //         source;
-
+// 
 shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
 Upwork.NavImplType = type function() as table
         meta [
@@ -1204,7 +1204,9 @@ Upwork.GetTeamsImpl = (optional company_ref, optional team_refs) =>
         //filter
         teamRefasList = if team_refs = null then {} else Text.Split(team_refs, ","),
 
-        teamsFiltered = Table.SelectRows(teamsTable, each [company_id] = company_ref or List.Contains(teamRefasList, [team_id])),
+        teamsFiltered = if company_ref = null and team_refs = null then teamsTable else
+                                                  Table.SelectRows(teamsTable, each [company_id] = company_ref or 
+                                                            List.Contains(teamRefasList, [team_id])),
         
         teamsFiltered2 = Table.SelectRows(teamsFiltered, each [company_id] <> null and [team_id] <> null),
 
