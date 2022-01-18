@@ -1,6 +1,6 @@
 ﻿
 // This file contains Upwork connector logic
-[version = "3.2.8"]
+[version = "3.3.8"]
 section Upwork;
 
 windowWidth = 1024;
