@@ -364,7 +364,7 @@ queryCompanySelector = "query  {   companySelector {     items {       title    
 queryCustomFields = "query customFields ($input: CustomFieldsInput!, $limit: Int, $offset: Int)  {  customFields (input: $input, offset: $offset, limit: $limit){ labelSnap    displayValueSnap rollupAssignmentId  stale}}";
 
 
-queryOffers = "query offers($after: String, $first: Int!) {  organization {    id    clientOffers(pagination: {after: $after, first: $first}) {      totalCount      edges {        cursor        node {          id          title          offerCreatedDateTime          contactPerson {            id            nid            rid  email name          }  freelancer {            id            nid            rid            freelancerProfile{              aggregates{                jobSuccessScore                topRatedStatus              }            }          }           offer {            id createdUsingBYOFlow           offerTerms {              expectedEndDate              expectedStartDate            }            offerFeatures {              purchaseOrder {                orderNumber              }              privateTalentCloud {                name              }              eor            }          }        }      }    }  }}";
+queryOffers = "query offers($after: String, $first: Int!) {  organization {    id    clientOffers(pagination: {after: $after, first: $first}) {      totalCount      edges {        cursor        node {          id          title          offerCreatedDateTime          contactPerson {            id            nid            rid  name          }  freelancer {            id            nid            rid            freelancerProfile{              aggregates{                jobSuccessScore                topRatedStatus              }            }          }           offer {            id createdUsingBYOFlow           offerTerms {              expectedEndDate              expectedStartDate            }            offerFeatures {              purchaseOrder {                orderNumber              }              privateTalentCloud {                name              }              eor            }          }        }      }    }  }}";
 
 queryContracts = "query contracts($after: String, $first: Int!) {  organization {    id    clientOffers(pagination: {after: $after, first: $first}) {      totalCount      edges {        cursor        node {          contract {            id            title            feedback {              clientFeedback {                score                freelancerResponse                comment              }              freelancerFeedback {                score                clientResponse                comment        recommendScore      }            }          }        }      }    }  }}";
 
@@ -1266,8 +1266,8 @@ Upwork.GetOffersImpl = (optional company_ref) as any =>
         #"Expanded clientOffers.edges1" = Table.ExpandRecordColumn(#"Expanded clientOffers.edges", "clientOffers.edges", {"node"}, {"clientOffers.edges.node"}),
         #"Expanded clientOffers.edges.node" = Table.ExpandRecordColumn(#"Expanded clientOffers.edges1", "clientOffers.edges.node", {"title", "offerCreatedDateTime", "contactPerson", "freelancer", "offer"}, {"clientOffers.edges.node.title", "clientOffers.edges.node.offerCreatedDateTime", "clientOffers.edges.node.contactPerson", "clientOffers.edges.node.freelancer", "clientOffers.edges.node.offer"}),
 
-        #"Expanded clientOffers.edges.node.contactPerson" = Table.ExpandRecordColumn(#"Expanded clientOffers.edges.node", "clientOffers.edges.node.contactPerson", {"id", "nid", "rid", "email", "name"}, 
-        {"clientOffers.edges.node.contactPerson.id", "clientOffers.edges.node.contactPerson.nid", "clientOffers.edges.node.contactPerson.rid", "clientOffers.edges.node.contactPerson.email",
+        #"Expanded clientOffers.edges.node.contactPerson" = Table.ExpandRecordColumn(#"Expanded clientOffers.edges.node", "clientOffers.edges.node.contactPerson", {"id", "nid", "rid", "name"}, 
+        {"clientOffers.edges.node.contactPerson.id", "clientOffers.edges.node.contactPerson.nid", "clientOffers.edges.node.contactPerson.rid",
          "clientOffers.edges.node.contactPerson.name"}),
 
         #"Expanded clientOffers.edges.node.offer" = Table.ExpandRecordColumn(#"Expanded clientOffers.edges.node.contactPerson", "clientOffers.edges.node.offer", {"id", "createdUsingBYOFlow", "offerTerms", "offerFeatures"}, {"clientOffers.edges.node.offer.id", "clientOffers.edges.node.offer.byo", "clientOffers.edges.node.offer.offerTerms", "clientOffers.edges.node.offer.offerFeatures"}),
@@ -1284,17 +1284,17 @@ Upwork.GetOffersImpl = (optional company_ref) as any =>
           #"Expand freelancerAggregates" = Table.ExpandRecordColumn(#"Expand freelancerProfile", "aggregates", {"jobSuccessScore", "topRatedStatus"}, {"job_success_score_100", "top_rated_status"}),
 
         #"Renamed Columns" = Table.RenameColumns(  #"Expand freelancerAggregates" ,{{"clientOffers.edges.node.title", "offer_title"}, {"clientOffers.edges.node.offerCreatedDateTime", "offer_created_date"}, {"clientOffers.edges.node.contactPerson.nid", "contact_person_username"}, 
-        {"clientOffers.edges.node.contactPerson.email", "contact_person_email"},
+        
         {"clientOffers.edges.node.contactPerson.name", "contact_person_name"},
         {"clientOffers.edges.node.offer.byo", "fl_byo"},
 
         {"clientOffers.edges.node.offer.id", "offer_id"}, {"expectedEndDate", "expected_end_date"}, {"expectedStartDate", "expected_start_date"}, {"eor", "eor"}}),
 
 
-        #"Removed Other Columns" = Table.SelectColumns(#"Renamed Columns",{"offer_title", "offer_created_date", "contact_person_username", "contact_person_email", "contact_person_name", "offer_id", "expected_end_date", "expected_start_date", "purchase_order", "talent_cloud", "eor", "freelancer_id", "job_success_score_100","top_rated_status", "fl_byo"}),
+        #"Removed Other Columns" = Table.SelectColumns(#"Renamed Columns",{"offer_title", "offer_created_date", "contact_person_username",  "contact_person_name", "offer_id", "expected_end_date", "expected_start_date", "purchase_order", "talent_cloud", "eor", "freelancer_id", "job_success_score_100","top_rated_status", "fl_byo"}),
 
 
-        #"Reordered Columns" = Table.ReorderColumns(#"Removed Other Columns",{"offer_id", "offer_title", "offer_created_date", "contact_person_username", "contact_person_email", "contact_person_name", "expected_end_date", "expected_start_date", "purchase_order", "talent_cloud", "eor", "freelancer_id", "job_success_score_100","top_rated_status", "fl_byo"}),
+        #"Reordered Columns" = Table.ReorderColumns(#"Removed Other Columns",{"offer_id", "offer_title", "offer_created_date", "contact_person_username",  "contact_person_name", "expected_end_date", "expected_start_date", "purchase_order", "talent_cloud", "eor", "freelancer_id", "job_success_score_100","top_rated_status", "fl_byo"}),
 
         #"Filtered Rows" = Table.SelectRows(#"Reordered Columns" , each ([offer_id] <> null)),
 
