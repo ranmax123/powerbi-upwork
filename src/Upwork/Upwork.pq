@@ -1,6 +1,6 @@
 ﻿
 // This file contains Upwork connector logic
-[version = "3.3.8"]
+[version = "3.3.9"]
 section Upwork;
 
 windowWidth = 1024;
@@ -374,10 +374,10 @@ queryMilestones = "query milestones($contractid: ID){  contract(id: $contractid)
 
 // shared Upwork.Contents = () as any =>
 //     let
-//         source = Upwork.GetContracts(null, "4720095")
+//         source = Upwork.GetOffers("8715048")
 //     in
 //         source;
-// 
+
 shared Upwork.Contents = Value.ReplaceType(Upwork.NavImpl, Upwork.NavImplType);
 Upwork.NavImplType = type function() as table
         meta [
@@ -1246,7 +1246,8 @@ Upwork.GetOffersImpl = (optional company_ref) as any =>
 
     let
         table = Upwork.GetTopLevelEnterprises(),
-        filteredOrg = if company_ref = null then table else Table.SelectRows(table, each [companyReference] = company_ref),
+        filteredOrg = if company_ref = null then table else Table.SelectRows(table, 
+                                                                            each [companyReference] = Number.From(company_ref)),
      
         data = Table.AddColumn(filteredOrg, "source", 
                             each Upwork.GetOffersPagedData(
@@ -1315,7 +1316,7 @@ Upwork.GetOffersImpl = (optional company_ref) as any =>
                             {"fl_byo", type logical},
                             {"freelancer_id", Int64.Type}})
     in
-        #"Changed Type1";
+       #"Changed Type1";
  
 // 
 //
