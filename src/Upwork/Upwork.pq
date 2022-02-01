@@ -1,6 +1,6 @@
 ﻿
 // This file contains Upwork connector logic
-[version = "3.3.9"]
+[version = "3.3.10"]
 section Upwork;
 
 windowWidth = 1024;
@@ -13,7 +13,7 @@ recordsPerPage = Json.Document(Extension.Contents("client_application.json"))[Re
 
 //TEST
 GQLLimit = 100;
-contractsPerCall = recordsPerPage;
+contractsPerCall = 100;//for CF query
 delayinSecGlobalParam = 5;
 
 //Upwork base Url
