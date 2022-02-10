@@ -1,6 +1,6 @@
 ﻿
 // This file contains Upwork connector logic
-[version = "3.3.10"]
+[version = "3.3.11"]
 section Upwork;
 
 windowWidth = 1024;
@@ -2270,7 +2270,8 @@ Upwork.GraphQLRequest =
                                         actualResult = if status = 500 or 
                                                          (Record.HasFields(json, "errors") and 
                                                           (
-                                                          (Record.HasFields(json[errors]{0}, "extensions")
+                                                          (Record.HasFields(json[errors]{0}, "extensions") and
+                                                           Record.HasFields(json[errors]{0}[extensions], "code") 
                                                            and json[errors]{0}[extensions][code] = 500)
                                                            or 
                                                            json[errors]{0}[message] = "GQL execution timeout after PT30S"
