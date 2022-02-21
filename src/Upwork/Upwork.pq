@@ -1526,16 +1526,19 @@ Upwork.GetContractsPaged = (url, optional param as record) =>
     in
         allEngagementsSelectedColumns;
 
-// Get contracts filtered by team
-Upwork.GetContractsFilteredByTeam = (optional company_ref, optional team_refs) =>
+// Get contracts filtered by team and date
+Upwork.GetContractsFiltered = (optional company_ref, optional team_refs, optional dateFilter) =>
 
     let
         //get teams first to filter out contracts for that team
         teams = Upwork.GetTeams(company_ref, team_refs),
 
+        created_time_from_filter = if dateFilter is null then [] else [created_time_from = dateFilter],
+
         //get contracts per team to speed up 
         teamsContracts = Table.AddColumn(teams, "source", 
-                            each Upwork.GetContractsPaged(contractUrl, [buyer_team__reference = Text.From([team_id])])),
+                            each Upwork.GetContractsPaged(contractUrl, created_time_from_filter &
+                                                                    [buyer_team__reference = Text.From([team_id])])),
 
         allEngagementsSelectedColumns = Table.ExpandTableColumn(teamsContracts, "source", 
                                                             contractOutputColumns, 
@@ -1573,7 +1576,7 @@ Upwork.GetContractsImplType = type function(optional company_ref as ( type text 
 Upwork.GetContractsImpl = (optional company_ref, optional team_refs) =>
     let
         //get teams first to filter out contracts for that team
-        contracts = Upwork.GetContractsFilteredByTeam(company_ref, team_refs),
+        contracts = Upwork.GetContractsFiltered(company_ref, team_refs),
 
         //FEEDBACK RECORD
         feedbackRecord = Table.TransformColumns(contracts, {{"feedback", each if _ = "" then [] else _}}),
@@ -1911,8 +1914,10 @@ Upwork.GetFreelancersImplType = type function(optional company_ref as ( type tex
 
 Upwork.GetFreelancersImpl = (optional company_ref, optional team_refs) =>
     let
-        //get teams first to filter out contracts for that team
-        contracts = Upwork.GetContractsFilteredByTeam(company_ref, team_refs),
+        //get teams and date first to filter out contracts for that team
+        dateFilter = Date.ToText(#date(Date.Year(DateTime.LocalNow())-2, 1, 1), "yyyy-MM-dd"),
+
+        contracts = Upwork.GetContractsFiltered(company_ref, team_refs, dateFilter),
         
         freelancerSelectedColumns = Table.SelectColumns(contracts, {"freelancer_text_id"}),
         uniqueFreelancers = Table.Distinct(freelancerSelectedColumns),
