@@ -1,6 +1,6 @@
 ﻿
 // This file contains Upwork connector logic
-[version = "3.3.11"]
+[version = "3.3.12"]
 section Upwork;
 
 windowWidth = 1024;
@@ -2162,9 +2162,9 @@ Upwork.GetTotalHoursWorkedImpl = (optional company_ref, optional team_refs) =>
 
         teamsWithCompanyUID = Table.SelectColumns(teams, "company_uid"),
         uniqueCompanyUIDs = Table.Distinct(teamsWithCompanyUID),
-
+        
         teamsWithMonths = Table.AddColumn(uniqueCompanyUIDs, "worked_on_month", 
-                                          each Upwork.GetMonthFirstDates(#date(2018,1,1), 
+                                          each Upwork.GetMonthFirstDates(#date(Date.Year(DateTime.LocalNow())-2, 1, 1), 
                                                              DateTime.Date(DateTime.LocalNow())), 
                                           type date),
        
